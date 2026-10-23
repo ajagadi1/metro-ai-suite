@@ -13,22 +13,12 @@ fi
 SAMPLE_APP_ARG="$1"
 if [ -z "$SAMPLE_APP_ARG" ]; then
     echo "Error: First argument (SAMPLE_APP) is required."
-    echo "Usage: $0 <smart-parking|loitering-detection|loitering-detection-ui|smart-intersection> [HOST_IP]"
+    echo "Usage: $0 <smart-parking|loitering-detection|smart-intersection|smart-tolling> [HOST_IP]"
     exit 1
 fi
 
-# "loitering-detection-ui" is loitering-detection plus the opt-in Console UI
-# service, so it maps onto the same SAMPLE_APP as the plain app and only
-# flips ENABLE_UI, which the per-app install.sh reads to decide whether to add that
-# service to docker-compose.yml.
-ENABLE_UI_ARG="false"
-if [ "$SAMPLE_APP_ARG" = "loitering-detection-ui" ]; then
-    SAMPLE_APP_ARG="loitering-detection"
-    ENABLE_UI_ARG="true"
-fi
-
 case "$SAMPLE_APP_ARG" in
-    "smart-parking"|"loitering-detection"|"smart-intersection")
+    "smart-parking"|"loitering-detection"|"smart-intersection"|"smart-tolling")
         # Update SAMPLE_APP in .env file
         if grep -q "^SAMPLE_APP=" "$ENV_FILE"; then
             sed -i "s/^SAMPLE_APP=.*/SAMPLE_APP=$SAMPLE_APP_ARG/" "$ENV_FILE"
@@ -37,7 +27,7 @@ case "$SAMPLE_APP_ARG" in
         fi
         ;;
     *)
-        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, loitering-detection-ui, smart-intersection."
+        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, smart-intersection, smart-tolling."
         exit 1
         ;;
 esac
@@ -78,6 +68,8 @@ fi
 # Copy appropriate docker-compose file
 if [ "$SAMPLE_APP" = "smart-intersection" ]; then
     cp compose-scenescape.yml docker-compose.yml
+elif [ "$SAMPLE_APP" = "smart-tolling" ]; then
+    cp compose-smart-tolling.yml docker-compose.yml
 else
     cp compose-without-scenescape.yml docker-compose.yml
 fi
@@ -94,7 +86,7 @@ cd "$SAMPLE_APP" || exit 1
 
 if [ -f "./install.sh" ]; then
     chmod +x ./install.sh
-    ENABLE_UI="$ENABLE_UI_ARG" ./install.sh $HOST_IP
+    ./install.sh $HOST_IP
 else
     echo "Error: install.sh not found in $SAMPLE_APP directory."
     exit 1
