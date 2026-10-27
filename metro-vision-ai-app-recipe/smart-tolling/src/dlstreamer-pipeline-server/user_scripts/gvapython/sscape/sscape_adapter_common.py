@@ -121,26 +121,6 @@ class PostDecodeTimestampCapture:
         self.last_calculated_fps_ts = None
         self.fps_calc_interval = 1
         self.frame_cnt = 0
-        # PTS-anchored clock: timestamps come from buffer PTS + a wall-clock
-        # epoch captured on the first frame. This keeps stamps synchronized
-        # across cameras even when individual pipelines fluctuate in FPS.
-        self.epoch = None
-
-    def _get_pts_seconds(self, frame):
-        """Read the underlying GstBuffer PTS (ns) from a DL Streamer
-        VideoFrame; return seconds, or None if unavailable."""
-        pts_ns = None
-        try:
-            buf = getattr(frame, '_VideoFrame__buffer', None)
-            if buf is None:
-                buf = getattr(frame, '_buffer', None)
-            if buf is not None and hasattr(buf, 'pts'):
-                pts_ns = buf.pts
-        except Exception:
-            pts_ns = None
-        if pts_ns is None or pts_ns < 0 or pts_ns == 0xFFFFFFFFFFFFFFFF:
-            return None
-        return pts_ns / 1e9
 
     def processFrame(self, frame):
         wall = time.time()
@@ -158,15 +138,12 @@ class PostDecodeTimestampCapture:
                 self.timeOffset = response.offset
                 self.lastTimeSync = wall
 
-        # Anchor timestamp to PTS so all cameras (decoded from synchronized
-        # recordings) emit identical stamps for the same physical instant.
-        pts_s = self._get_pts_seconds(frame)
-        if pts_s is not None:
-            if self.epoch is None:
-                self.epoch = wall - pts_s + self.timeOffset
-            now = self.epoch + pts_s
-        else:
-            now = wall + self.timeOffset
+        # Always use wall-clock time (not the buffer's video-content PTS): PTS advances at
+        # the source's nominal encoded rate regardless of actual processing throughput, so
+        # anchoring to it drifts further behind real time, without bound, whenever the
+        # pipeline can't sustain that nominal rate -- which is exactly when the scenescape
+        # controller's staleness check then discards every frame as permanently "too old".
+        now = wall + self.timeOffset
         self.timestamp_for_next_block = now
         frame.add_message(json.dumps({
             'postdecode_timestamp': f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
