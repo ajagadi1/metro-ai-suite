@@ -1,7 +1,6 @@
 #!/bin/bash
 
 SOURCE="src"
-CHART="chart"
 if [ ! -f "${SOURCE}/secrets/browser.auth" ]; then
   bash ${SOURCE}/secrets/generate_secrets.sh
 fi
@@ -90,26 +89,4 @@ if [ ! -f "${MODELS_DIR}/paddle_ocr_v4/ch_PP-OCRv4_rec_infer.xml" ]; then
     echo "Error: Failed to download OCR submodel from license-plate-reader.zip"
     exit 1
   fi
-fi
-
-# Copy files to chart (Helm deployment, not present in the Docker Compose recipe)
-if [ -d "${CHART}" ]; then
-  mkdir -p ${CHART}/files
-  mkdir -p ${CHART}/files/dlstreamer-pipeline-server/user_scripts/gvapython/sscape
-  mkdir -p ${CHART}/files/webserver
-  cp -r \
-    ${SOURCE}/controller \
-    ${SOURCE}/grafana \
-    ${SOURCE}/mosquitto \
-    ${SOURCE}/node-red \
-    ${CHART}/files
-  cp -r \
-    ${SOURCE}/dlstreamer-pipeline-server/user_scripts \
-    ${CHART}/files/dlstreamer-pipeline-server
-  cp \
-    ${SOURCE}/dlstreamer-pipeline-server/config.json \
-    ${CHART}/files/dlstreamer-pipeline-server/config.json
-  cp \
-    ${SOURCE}/webserver/user_access_config.json \
-    ${CHART}/files/webserver/user_access_config.json
 fi
