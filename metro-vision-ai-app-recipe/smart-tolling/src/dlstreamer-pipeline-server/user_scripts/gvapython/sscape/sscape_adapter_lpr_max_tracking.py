@@ -9,27 +9,27 @@
 # =============================================================================
 
 import base64
-import json
-import logging
-import os
 import time
 from collections import defaultdict
 from datetime import datetime
-from uuid import getnode as get_mac
 
 import cv2
-import ntplib
-import paho.mqtt.client as mqtt
 from pytz import timezone
 
 from utils import publisher_utils as utils
+from sscape_adapter_common import (
+    DATETIME_FORMAT,
+    DEBUG_MODE,
+    TIMEZONE,
+    PostDecodeTimestampCapture as _PostDecodeTimestampCaptureBase,
+    PostInferenceDataPublishBase,
+    apply_default_vehicle_label,
+    computeObjBoundingBoxParams,
+    normalize_detections,
+    publish_frame_result,
+)
 
 # ==================== CONSTANTS ====================
-ROOT_CA = os.environ.get('ROOT_CA', '/run/secrets/certs/scenescape-ca.pem')
-DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
-TIMEZONE = "UTC"
-
-DEBUG_MODE = os.environ.get('DEBUG_ADAPTER', 'false').lower() == 'true'
 # Set to True to merge fragmented OCR detections into full plate text
 ENABLE_OCR_MERGE = True
 OCR_MERGE_MAX_GAP_PX = 80
@@ -51,28 +51,6 @@ def sanitize_plate_text(text):
 
 
 # ==================== HELPER FUNCTIONS ====================
-
-def getMACAddress():
-    if 'MACADDR' in os.environ:
-        return os.environ['MACADDR']
-    a = get_mac()
-    h = iter(hex(a)[2:].zfill(12))
-    return ":".join(i + next(h) for i in h)
-
-
-def computeObjBoundingBoxParams(pobj, fw, fh, x, y, w, h, xminnorm=None, yminnorm=None, xmaxnorm=None, ymaxnorm=None):
-    try:
-        xmax, xmin = int(xmaxnorm * fw), int(xminnorm * fw)
-        ymax, ymin = int(ymaxnorm * fh), int(yminnorm * fh)
-    except Exception:
-        xmin, ymin, xmax, ymax = x, y, x + w, y + h
-
-    comw, comh = (xmax - xmin) / 3, (ymax - ymin) / 4
-    pobj.update({
-        'center_of_mass': {'x': int(xmin + comw), 'y': int(ymin + comh), 'width': comw, 'height': comh},
-        'bounding_box_px': {'x': x, 'y': y, 'width': w, 'height': h}
-    })
-
 
 def map_label_to_category(label):
     if not label:
@@ -178,75 +156,10 @@ def merge_ocr_detections(dets, max_gap_px=OCR_MERGE_MAX_GAP_PX, min_vertical_ove
 
 # ==================== TIMESTAMP CAPTURE ====================
 
-class PostDecodeTimestampCapture:
+class PostDecodeTimestampCapture(_PostDecodeTimestampCaptureBase):
     """Adds NTP-synchronized timestamps to each frame before inference"""
-    
-    def __init__(self, ntpServer=None):
-        self.log = logging.getLogger('SSCAPE_ADAPTER_LPR')
-        self.log.setLevel(logging.INFO)
-        self.ntpClient = ntplib.NTPClient()
-        self.ntpServer = ntpServer
-        self.lastTimeSync = None
-        self.timeOffset = 0
-        self.timestamp_for_next_block = None
-        self.fps = 5.0
-        self.fps_alpha = 0.75
-        self.last_calculated_fps_ts = None
-        self.fps_calc_interval = 1
-        self.frame_cnt = 0
-        # PTS-anchored clock: timestamps come from buffer PTS + a wall-clock
-        # epoch captured on the first frame. This keeps stamps synchronized
-        # across cameras even when individual pipelines fluctuate in FPS.
-        self.epoch = None
 
-    def _get_pts_seconds(self, frame):
-        """Read the underlying GstBuffer PTS (ns) from a DL Streamer
-        VideoFrame; return seconds, or None if unavailable."""
-        pts_ns = None
-        try:
-            buf = getattr(frame, '_VideoFrame__buffer', None)
-            if buf is None:
-                buf = getattr(frame, '_buffer', None)
-            if buf is not None and hasattr(buf, 'pts'):
-                pts_ns = buf.pts
-        except Exception:
-            pts_ns = None
-        if pts_ns is None or pts_ns < 0 or pts_ns == 0xFFFFFFFFFFFFFFFF:
-            return None
-        return pts_ns / 1e9
-
-    def processFrame(self, frame):
-        wall = time.time()
-        self.frame_cnt += 1
-        if not self.last_calculated_fps_ts:
-            self.last_calculated_fps_ts = wall
-        if (wall - self.last_calculated_fps_ts) > self.fps_calc_interval:
-            self.fps = self.fps * self.fps_alpha + (1 - self.fps_alpha) * (self.frame_cnt / (wall - self.last_calculated_fps_ts))
-            self.last_calculated_fps_ts = wall
-            self.frame_cnt = 0
-
-        if self.ntpServer:
-            if not self.lastTimeSync or wall - self.lastTimeSync > 1000:
-                response = self.ntpClient.request(host=self.ntpServer, port=123)
-                self.timeOffset = response.offset
-                self.lastTimeSync = wall
-
-        # Anchor timestamp to PTS so all cameras (decoded from synchronized
-        # recordings) emit identical stamps for the same physical instant.
-        pts_s = self._get_pts_seconds(frame)
-        if pts_s is not None:
-            if self.epoch is None:
-                self.epoch = wall - pts_s + self.timeOffset
-            now = self.epoch + pts_s
-        else:
-            now = wall + self.timeOffset
-        self.timestamp_for_next_block = now
-        frame.add_message(json.dumps({
-            'postdecode_timestamp': f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
-            'timestamp_for_next_block': now,
-            'fps': self.fps
-        }))
-        return True
+    LOGGER_NAME = 'SSCAPE_ADAPTER_LPR'
 
 
 # ==================== LPR POLICY ====================
@@ -353,20 +266,16 @@ metadatapolicies = {
 
 # ==================== DATA PUBLISHER ====================
 
-class PostInferenceDataPublish:
+class PostInferenceDataPublish(PostInferenceDataPublishBase):
     """Publishes LPR inference data to MQTT"""
-    
+
+    LOGGER_NAME = 'SSCAPE_ADAPTER_LPR'
+
     def __init__(self, cameraid, metadatagenpolicy='lprPolicy', publish_image=False, view_angle='front'):
-        self.log = logging.getLogger('SSCAPE_ADAPTER_LPR')
-        self.log.setLevel(logging.INFO)
-        self.cameraid = cameraid
+        super().__init__(cameraid, publish_image=publish_image)
         self.view_angle = view_angle if view_angle else 'front'
-        self.is_publish_image = publish_image
-        self.is_publish_calibration_image = False
-        self.setupMQTT()
         self.metadatagenpolicy = metadatapolicies.get(metadatagenpolicy, lprPolicy)
-        self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
-        
+
         self.vehicle_memory = {}
         # FIX C: Increase Tracking Memory to stabilize SceneScape tracks
         self.VEHICLE_MEMORY_TTL = 30.0  # seconds
@@ -378,78 +287,6 @@ class PostInferenceDataPublish:
             if DEBUG_MODE:
                 print(f"🧹 LPR: Clearing vehicle {vid} from memory (TTL expired)")
             del self.vehicle_memory[vid]
-
-    def on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
-            print(f"Connected to MQTT Broker {self.broker}")
-            self.client.subscribe(f"scenescape/cmd/camera/{self.cameraid}")
-            print(f"Subscribed to topic: scenescape/cmd/camera/{self.cameraid}")
-        else:
-            print(f"Failed to connect, return code {rc}")
-
-    def setupMQTT(self):
-        self.client = mqtt.Client()
-        self.client.on_connect = self.on_connect
-        self.broker = os.environ.get('MQTT_BROKER', 'broker.scenescape.intel.com')
-        try:
-            self.client.connect(self.broker, int(os.environ.get('MQTT_PORT', '1883')), 120)
-        except Exception as e:
-            self.log.error(f"Failed to connect to MQTT broker {self.broker}: {e}")
-        self.client.on_message = self.handleCameraMessage
-        if ROOT_CA and os.path.exists(ROOT_CA):
-            self.client.tls_set(ca_certs=ROOT_CA)
-        self.client.loop_start()
-
-    def handleCameraMessage(self, client, userdata, message):
-        msg = str(message.payload.decode("utf-8"))
-        if msg == "getimage":
-            self.is_publish_image = True
-        elif msg == "getcalibrationimage":
-            self.is_publish_calibration_image = True
-
-    def annotateObjects(self, img):
-        objColors = ((0, 0, 255), (255, 128, 128), (207, 83, 255), (31, 156, 238))
-        for otype, objects in self.frame_level_data.get('objects', {}).items():
-            if otype == "person":
-                cindex = 0
-            elif otype in ("vehicle", "bicycle", "license_plate", "sedan", "truck", "bus"):
-                cindex = 1
-            else:
-                cindex = 2
-            for obj in objects:
-                try:
-                    topleft_cv = (int(obj['bounding_box_px']['x']), int(obj['bounding_box_px']['y']))
-                    bottomright_cv = (int(obj['bounding_box_px']['x'] + obj['bounding_box_px']['width']),
-                                      int(obj['bounding_box_px']['y'] + obj['bounding_box_px']['height']))
-                    cv2.rectangle(img, topleft_cv, bottomright_cv, objColors[cindex], 4)
-                except Exception:
-                    continue
-
-    def annotateFPS(self, img, fpsval):
-        fpsStr = f'FPS {fpsval:.1f}'
-        scale = int((img.shape[0] + 479) / 480)
-        cv2.putText(img, fpsStr, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
-                    1 * scale, (0, 0, 0), 5 * scale)
-        cv2.putText(img, fpsStr, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
-                    1 * scale, (255, 255, 255), 2 * scale)
-
-    def buildImgData(self, imgdatadict, gvaframe, annotate):
-        """Build image data with error handling for corrupted buffers"""
-        imgdatadict.update({
-            'timestamp': self.frame_level_data.get('timestamp'),
-            'id': self.cameraid
-        })
-        try:
-            with gvaframe.data() as image:
-                if annotate:
-                    self.annotateObjects(image)
-                    self.annotateFPS(image, self.frame_level_data.get('rate', 0.0))
-                _, jpeg = cv2.imencode(".jpg", image)
-            jpeg = base64.b64encode(jpeg).decode('utf-8')
-            imgdatadict['image'] = jpeg
-        except RuntimeError as e:
-            self.log.error(f"Failed to build image data: {e}")
-            imgdatadict['image'] = None
 
     def buildObjData(self, gvadata, frame):
         """Build object data with LPR-specific logic"""
@@ -772,56 +609,15 @@ class PostInferenceDataPublish:
             elif gvametadata.get('gva_meta') and 'objects' not in gvametadata:
                 gvametadata['objects'] = gvametadata['gva_meta']
 
-            # Normalize detections
-            for det in gvametadata.get('objects', []):
-                if 'detection' in det:
-                    d = det['detection']
-                    if 'label' not in det:
-                        det['label'] = d.get('label')
-                    if 'confidence' not in det:
-                        det['confidence'] = d.get('confidence')
-                if 'w' in det and 'width' not in det:
-                    det['width'] = det['w']
-                if 'h' in det and 'height' not in det:
-                    det['height'] = det['h']
-                if det.get('object_id') is None and det.get('id') is not None:
-                    det['object_id'] = det.get('id')
+            normalize_detections(gvametadata.get('objects', []))
 
             if DEBUG_MODE:
                 print("GVAMETADATA (raw detections):", gvametadata.get('objects', []))
 
-            # Smart label defaulting
-            for det in gvametadata.get('objects', []):
-                if det.get('label') is None and det.get('object_id') is not None:
-                    det['label'] = 'vehicle'
+            apply_default_vehicle_label(gvametadata.get('objects', []))
 
             self.buildObjData(gvametadata, frame)
 
-            # Publish images (only if successfully captured)
-            if self.is_publish_image:
-                self.buildImgData(imgdatadict, frame, True)
-                if imgdatadict.get('image') is not None:
-                    self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(imgdatadict))
-                self.is_publish_image = False
-
-            if self.is_publish_calibration_image:
-                if not imgdatadict:
-                    self.buildImgData(imgdatadict, frame, False)
-                if imgdatadict.get('image') is not None:
-                    self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(imgdatadict))
-                self.is_publish_calibration_image = False
-            
-            final_payload = json.dumps(self.frame_level_data)
-            try:
-                if DEBUG_MODE:
-                    print("FINAL MQTT PAYLOAD:", json.dumps(self.frame_level_data, indent=2))
-                self.client.publish(f"scenescape/data/camera/{self.cameraid}", final_payload)
-            except Exception as e:
-                self.log.error(f"Failed to publish to MQTT: {e}")
-
-            try:
-                frame.add_message(final_payload)
-            except Exception:
-                pass
+            publish_frame_result(self, frame, imgdatadict)
 
         return True
