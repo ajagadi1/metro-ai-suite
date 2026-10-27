@@ -29,7 +29,7 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
   
   echo "Downloading videos in parallel..."
   for VIDEO in "${VIDEOS[@]}"; do
-    curl -k -L -s "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" &
+    curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" &
   done
   
   # # Dummy download to potentially improve bandwidth allocation
@@ -65,7 +65,11 @@ for entry in "${MODELS[@]}"; do
   fi
   echo "Downloading model ${zip_name}..."
   tmp_zip="$(mktemp -d)/${zip_name}"
-  curl -k -L -s "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"
+  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"; then
+    echo "Error: Failed to download ${MODEL_URL}/${zip_name}"
+    rm -rf "$(dirname "${tmp_zip}")"
+    exit 1
+  fi
   unzip -qo "${tmp_zip}" -d "$(dirname "${tmp_zip}")"
   mkdir -p "${MODELS_DIR}/${local_dir}"
   cp -r "$(dirname "${tmp_zip}")/${zip_folder}"/. "${MODELS_DIR}/${local_dir}/"
@@ -80,7 +84,11 @@ done
 if [ ! -f "${MODELS_DIR}/paddle_ocr_v4/ch_PP-OCRv4_rec_infer.xml" ]; then
   echo "Downloading model license-plate-reader.zip (OCR submodel)..."
   tmp_zip="$(mktemp -d)/license-plate-reader.zip"
-  curl -k -L -s "https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/license-plate-reader.zip" -o "${tmp_zip}"
+  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/license-plate-reader.zip" -o "${tmp_zip}"; then
+    echo "Error: Failed to download license-plate-reader.zip"
+    rm -rf "$(dirname "${tmp_zip}")"
+    exit 1
+  fi
   unzip -qo "${tmp_zip}" -d "$(dirname "${tmp_zip}")"
   mkdir -p "${MODELS_DIR}/paddle_ocr_v4"
   cp -r "$(dirname "${tmp_zip}")/license-plate-reader/models/ch_PP-OCRv4_rec_infer"/. "${MODELS_DIR}/paddle_ocr_v4/"
