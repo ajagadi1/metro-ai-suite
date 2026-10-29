@@ -140,7 +140,7 @@ mkdir -p src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/opt/project/src/dlstreamer-pipeline-server/models
 chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
 if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
-    if [ "${YOLOV11S_DOWNLOAD_CONFIRMED:-0}" != "1" ]; then
+    if [ "\${YOLOV11S_DOWNLOAD_CONFIRMED:-0}" != "1" ]; then
         echo "YOLOv11s model download requires explicit confirmation."
         exit 1
     fi
