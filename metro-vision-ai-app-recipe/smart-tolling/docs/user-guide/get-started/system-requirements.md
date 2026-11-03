@@ -1,29 +1,47 @@
 # System Requirements
 
-## Hardware Prerequisites
+This section provides detailed hardware, software, and platform requirements to help you set up and run the application efficiently.
 
-To ensure 30+ FPS performance and real-time inference, the following hardware is recommended:
+## Supported Platforms
 
-| Component | Specification |
-| :--- | :--- |
-| **Processor** | Intel® Xeon® Scalable Processor or Intel® Core™ i9 (12th Gen+) |
-| **Accelerator** | **Intel® Data Center GPU Flex Series** (Highly Recommended for high-density streams/transcoding) |
-| **Memory** | 32 GB DDR4/DDR5 ECC |
-| **Storage** | 512 GB NVMe SSD (High Endurance) |
-| **Network** | Dual 10GbE Uplink (for Camera Streams + Cloud Backhaul) |
+**Operating Systems**
+- Ubuntu 24.04 LTS
 
-## Software Prerequisites
+## Minimum Requirements
 
-- **Operating System**: Ubuntu 22.04 LTS (Jammy Jellyfish)
-- **Container Runtime**: Docker Engine 24.0+
-- **Orchestration**: Docker Compose v2.20+
-- **Drivers**: Intel® GPU Drivers (verified for Flex Series)
+| **Component**       | **Minimum Requirement** |
+|---------------------|-------------------------|
+| **Processor**       | Intel® Core™ Ultra Processor (Series 1 and above) or Intel® Core™ Processor Series 3, with Intel® HD Graphics   |
+| **Memory**          | 16 GB                   |
+| **Disk Space**      | 128 GB SSD              |
+| **GPU/Accelerator** | Integrated GPU          |
+| **NPU**             | Required for LPR OCR and vehicle color classification |
 
-## Network Requirements
+### Validated Platforms
 
-- **Ports**:
-  - `1883`: MQTT Broker (Internal/External)
-  - `3000`: Grafana Dashboard
-  - `8080`: Web UI
-  - `8086`: InfluxDB
-- **Time Sync**: Local NTP Server connectivity is critical for multi-camera correlation.
+| Product / Family     | CPU |  iGPU |  NPU |
+|----------------------|-----------|------------|-----------|
+| Intel® Core™ Ultra Processors (Series 3, 2, 1) | ✓         | ✓          | ✓         |
+| Intel® Core™ Processors Series 3 | ✓         | ✓          | ✓         |
+
+**Validated on Intel® Arc™ dGPU models:** A770, B580, B60, and B50.
+
+> [!NOTE]
+> Users can also create apps tailored to their use case using models supported by DL Streamer.
+> Check [the list of supported models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
+
+## Software Requirements
+
+**Required Software**:
+- Docker 29.5 or higher
+- Git, unzip
+
+## Accelerator Requirements
+
+The default pipeline configuration hardcodes `device=GPU` for detection/tracking and
+`device=NPU` for color classification and license-plate OCR in `config.json`. A system
+without these accelerators cannot run the pipeline as shipped.
+
+## Validation
+
+- Ensure all dependencies are installed and configured before proceeding to [Get Started](../get-started.md).

@@ -48,7 +48,7 @@ toll operators.
 **Modularity**: Architecture based on modular microservices enables composability
 and reconfiguration.
 
-**High-throughput processing**: [Optimized video pipelines](./how-it-works/optimization.md#zero-copy-video-pipeline)
+**High-throughput processing**: [Optimized video pipelines](./how-it-works/optimization.md)
 for Intel edge devices.
 
 ## How it Works
@@ -73,7 +73,6 @@ The system uses the **Metro Edge Architecture** based on three key layers:
 
 get-started
 how-it-works
-api-reference
 troubleshooting
 
 :::

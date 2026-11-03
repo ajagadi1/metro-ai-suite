@@ -14,15 +14,6 @@ Before you begin ensure the following:
   [minimum requirements](./get-started/system-requirements.md).
 - **Docker Installation Complete**: Install Docker, For installation instructions, see
   [Get Docker](https://docs.docker.com/get-docker/).
-- **MQTT Explorer**: Ensure access to
-  [MQTT explorer](https://mqttexplorer.com/download/) for traffic data streaming and verifying payloads.
-
-> [!NOTE]
->
-> - Make sure the following ports are available
->   - localhost:1880 (for **NodeRED**)
->   - localhost:8086 (for **InfluxDB**)
->   - localhost:3000 (for **Grafana**)
 
 ## Setup Guide
 
@@ -41,13 +32,8 @@ cd metro-vision-ai-app-recipe/
 
 ### 2. Configure the Environment
 
-Ensure the following specialized adapters are present in `src/dlstreamer-pipeline-server/user_scripts/gvapython/sscape/`:
-
-- `sscape_adapter_lpr_max_tracking.py` (Front/Rear LPR)
-- `sscape_adapter_side_max_tracking.py` (Axle Counting)
-
 > [!NOTE]
-> Verify variables in `.env` match your camera RTSP endpoints.*
+> Verify variables in `.env` match your camera RTSP endpoints.
 
 ### 3. Create .yml file
 
@@ -57,17 +43,9 @@ Generate the 'docker-compose.yml' file:
 ./install.sh smart-tolling
 ```
 
-The `docker-compose.yml` file mentions all the relative paths in the pipeline which is configured in config.json file.
-
 ### 4. Launch Services
 
 Start the application stack using Docker Compose:
-
-```bash
-docker compose up
-```
-
-**OR** to hide the logs:
 
 ```bash
 docker compose up -d
@@ -76,7 +54,7 @@ docker compose up -d
 To **stop** the application:
 
 ```bash
-docker compose down
+docker compose down -v
 ```
 
 ### 5. Verify Deployment
@@ -87,68 +65,46 @@ Check the status of all containers:
 docker compose ps
 ```
 
-*Expected Output:* Services `dlstreamer-pipeline-server`, `broker`, `web`, `influxdb`, `node-red` and `grafana` should be `Up`.
-
 ## Accessing the Application
 
-- **Web UI (Scenescape Configuration):** `https://localhost`
-- **Grafana (Dashboard):** `http://localhost:3000` (Default Login: `admin`/`admin`)
-
-### User Interface
-
-Open a browser and go to the following endpoints to access the application.
+Open a browser and go to the following endpoints. The application uses a self-signed HTTPS
+certificate, so your browser will show a security warning - use **Google Chrome** and accept it.
+After starting the stack, wait about a minute for the MQTT broker to come up before the UI shows
+live data.
 
 > [!NOTE]
->
-> - For passwords stored in files (e.g., `supass` or `influxdb2-admin-token`), refer to the respective secret files in your deployment under ./src/secrets (Docker) or chart/files/secrets (Helm).
-> - Since the application uses HTTPS with self-signed certificates, your browser may display a certificate warning. For the best experience, use **Google Chrome** and accept the certificate.
+> Passwords stored in secret files (e.g. `supass`, `influxdb2-admin-token`) are under
+> `./smart-tolling/src/secrets/` (Docker) or `chart/files/secrets` (Helm).
+
+### Scenescape Web UI
 
 - **URL**: [https://localhost](https://localhost)
-- **Log in with credentials**:
-  - **Username**: `admin`
-  - **Password**: Stored in `supass`. (Check `./smart-tolling/src/secrets/supass`)
+- **Username**: `admin`
+- **Password**: Stored in `./smart-tolling/src/secrets/supass`
 
-> [!NOTE]
->
-> - After starting the application, wait approximately 1 minute for the MQTT broker to initialize. You can confirm it is ready when green arrows appear for MQTT in the application interface . Since the application uses HTTPS, your browser may display a self-signed certificate warning. For the best experience, use **Google Chrome**.
+![Scenescape Web UI showing the toll scene, cameras and regions](./_assets/smart_tolling_Scenescape_Setup.png)
 
-### MQTT Explorer
+### Grafana UI
 
-Login with the following credentials:
+- **URL**: [https://localhost/grafana/](https://localhost/grafana/)
+- **Username**: `admin`
+- **Password**: You will be prompted to set one on first login.
 
-- **Protocol**: `mqtt://`
-- **Host**: `localhost`
-- **Port**: `1883`
+### Node-RED UI
 
-> [!NOTE]
->
-> - Make sure to disable "Validate Certificate" and enable "Encryption(tls)".
-
-### NodeRED UI
-
-- **URL**: [http://localhost:1880](http://localhost:1880)
+- **URL**: [https://localhost/nodered/](https://localhost/nodered/)
 
 ### InfluxDB UI
 
 - **URL**: [http://localhost:8086](http://localhost:8086)
-- **Log in with credentials**:
-
-  - **Username**: `<your_influx_username>` (Check `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-username`)
-  - **Password**: `<your_influx_password>` (Check `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-password`)
-
-### Grafana UI
-
-- **URL**: [http://localhost:3000](http://localhost:3000)
-- **Log in with credentials**:
-  - **Username**: `admin`
-  - **Password**: (You will be prompted to change it on first login)
+- **Username**: Stored in `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-username`
+- **Password**: Stored in `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-password`
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
 ./get-started/system-requirements
-Server File Download Checklist <./get-started/server-files-checklist>
 
 :::
 hide_directive-->

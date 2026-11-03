@@ -19,7 +19,7 @@ The application can be configured to work with live cameras.
 
 - [**Video Analytics**](./how-it-works/perception-layer.md) - Deep Learning Streamer Pipeline Server
   (DL Streamer Pipeline Server) utilizes a pre-trained object detection model
-  to [generate object detection metadata](./how-it-works/#zero-copy-video-pipeline) and and a local
+  to [generate object detection metadata](./how-it-works/optimization.md) and a local
   NTP server for synchronized timestamps. This metadata is published to the MQTT broker.
 - **Sensor Fusion** - Scene Controller Microservice fuses the metadata from
   video analytics utilizing scene data obtained through the Scene Management API.
@@ -56,7 +56,6 @@ The application can be configured to work with live cameras.
 - [Analytics Pipeline](./how-it-works/analytics-pipeline.md)
 - [System Requirements](./get-started/system-requirements.md)
 - [Get Started](./get-started.md)
-- [API Reference](./api-reference.md)
 - [Support and Troubleshooting](./troubleshooting.md)
 
 <!--hide_directive

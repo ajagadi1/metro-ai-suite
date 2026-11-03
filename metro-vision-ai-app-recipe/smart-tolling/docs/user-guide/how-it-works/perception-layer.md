@@ -1,7 +1,7 @@
 # The Perception Layer
 
 The core of the system is the **DL Streamer Pipeline Server**, which orchestrates
-three parallel pipelines defined in `config.json`.
+six parallel pipelines (three camera-pair types, two lanes each) defined in `config.json`.
 
 ## Pipeline Strategy
 
@@ -20,7 +20,7 @@ Counting wheels is easy; counting *taxable* wheels is hard. Our adapter implemen
 1. **IoU Deduplication:**
    - *Problem:* A slow-moving truck might trigger multiple detections for the same wheel.
    - *Solution:* We apply Intersection-over-Union (IoU) filtering. If extensive
-     overlap (>40%) is detected between wheel bounding boxes, only the highest confidence detection is kept.
+     overlap (>65%) is detected between wheel bounding boxes, only the highest confidence detection is kept.
 
 2. **Ground Contact Physics (Lift Axle Detection):**
    - *Problem:* Trucks often lift axles to save tires. These should not be taxed.
