@@ -87,7 +87,7 @@ if [ "$SAMPLE_APP" = "smart-intersection" ] || [ "$SCENESCAPE_ENABLED" = "true" 
     cp compose-scenescape.yml docker-compose.yml
 elif [ "$SAMPLE_APP" = "smart-tolling" ]; then
     # Merge the shared Scenescape base with smart-tolling's deltas (extra service + model mounts)
-    docker compose -f compose-scenescape.yml -f compose-smart-tolling-overlay.yml config \
+    docker compose -f compose-scenescape.yml -f smart-tolling/compose-smart-tolling-overlay.yml config \
         --no-interpolate --no-normalize --no-path-resolution --no-env-resolution \
         > docker-compose.yml
 else

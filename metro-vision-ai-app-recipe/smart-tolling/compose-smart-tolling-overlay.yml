@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Smart Tolling deltas on top of compose-scenescape.yml (the shared Scenescape base).
-# Merge with: docker compose -f compose-scenescape.yml -f compose-smart-tolling-overlay.yml config
+# Merge with: docker compose -f compose-scenescape.yml -f smart-tolling/compose-smart-tolling-overlay.yml config
 #
 # List-valued keys below (volumes) are intentionally appended to, not replaced: the base's
 # compose-scenescape.yml volume entries that don't apply to smart-tolling (e.g. the
@@ -63,12 +63,6 @@ services:
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/color_int8_latest:/home/pipeline-server/models/color_int8_latest
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/licenseplate_cropped:/home/pipeline-server/models/licenseplate_cropped
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/paddle_ocr_v4:/home/pipeline-server/models/paddle_ocr_v4
-
-  web:
-    environment:
-      - EXAMPLEDB=/home/scenescape/Scenescape/smart-tolling.tar.bz2
-    volumes:
-      - ./${SAMPLE_APP}/src/webserver/smart-tolling.tar.bz2:/home/scenescape/Scenescape/smart-tolling.tar.bz2
 
   prometheus:
     image: prom/prometheus:v3.12.0

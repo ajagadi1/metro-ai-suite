@@ -6,7 +6,7 @@ items below.
 ## What You Need
 
 - **Video files** for the 6 camera views (or live RTSP cameras).
-- **A Scenescape scene bundle** (`.tar.bz2`) - your own 3D map with cameras and toll-lane
+- **A Scenescape scene ZIP** (`.zip`) - your own 3D map with cameras and toll-lane
   regions already placed on it.
 - The resolution and layout of your cameras, so you can adjust detection regions to match.
 
@@ -36,15 +36,12 @@ it, exported as a `.tar.bz2` bundle.
   [Create a New Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html)
   and [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/integrate-cameras-and-sensors.html)
   guides.
-- Export the created scene to `src/webserver/scenes/smart-tolling/smart-tolling.zip`, keeping this exact name so
-  no further changes are needed. To use a different name, see the next step instead.
+- [Export the Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html#exporting-and-importing-the-scene:~:text=of%20a%20scene.-,Exporting%20the%20scene,-%23) Export your scene to `src/webserver/scenes/Smart-Tolling/Smart-Tolling.zip`, keeping this exact name so no further changes are needed. To use a different name, see the next step instead.
 
-## 3. Update docker-compose.yml
+## 3. Update ZIP file name and corresponding directory name (Optional)
 
-<TO BE  UPDATED>
-If you kept the file name `smart-tolling.tar.bz2`, skip this step. If you used a different
-name, edit the `web` service in `compose-smart-tolling-overlay.yml` (the `EXAMPLEDB` value and
-its matching volume mount) to point to your file, then regenerate the compose file:
+If you kept the ZIP file name `Smart-Tolling.zip`, then skip this step. If you used a different
+name, edit the directory name `src/webserver/scenes/Smart-Tolling` as well to make sure that it matches exactly with the name of the ZIP file.
 
 ```bash
 ./install.sh smart-tolling
