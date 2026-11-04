@@ -5,7 +5,7 @@
                 "name": "toll-front-l",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "auto_start": true,
+                "auto_start": false,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -141,7 +141,7 @@
                 "name": "toll-rear-l",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "auto_start": true,
+                "auto_start": false,
                 "parameters": {
                     "type": "object",
                     "properties": {

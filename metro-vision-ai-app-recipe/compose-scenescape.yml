@@ -295,7 +295,7 @@ services:
     restart: on-failure:5
 
   scene-uploader:
-    image: intel/scenescape-manager:2026.3.0-20261103-weekly
+    image: intel/scenescape-manager:2026.2.0
     entrypoint: ["upload-scenes"]
     command:
       - --restauth
