@@ -23,7 +23,13 @@ InfluxDB stores the tagged vehicle-exit records as a time series for Grafana to 
 The system ships with pre-configured dashboards (`Overview.json` and
 `Vehicle_Events_Axle_Analysis.json`) focusing on Traffic Volume, Flow Efficiency and Safety Alerts.
 
-![Grafana Dashboard 1](../_assets/grafana_Dashboard1.png)
+![Grafana Overview Dashboard](../_assets/grafana_overview_dashboard.png)
+
+![Grafana Vehicle Events & Axle Analysis Dashboard](../_assets/grafana_Dashboard1.png)
+
+> [!NOTE]
+> The vehicle and license plate images in the screenshot above have been masked for privacy.
+> Your own deployment will show the actual evidence images captured for each event.
 
 ## Learn More
 

@@ -4,6 +4,12 @@ The **Metro Smart Tolling Application** is a high-precision Edge AI solution des
 
 Enabling such use cases across multiple viewpoints helps in understanding the object interaction with the real world in 3-D space. All the components used run on a single system enabling low latency, simplified deployment and cost efficiency.
 
+> [!IMPORTANT]
+> This app ships without sample videos or scene data - see
+> [Bring Your Own Data](./docs/user-guide/get-started/bring-your-own-data.md) for what to prepare before you start.
+>
+> Need help running this app? Contact `<SUPPORT_EMAIL>` and we'll help you get set up.
+
 ## Key Features
 
 **Multi vision**: Scene-based analytics allow insights beyond single sensor views.
@@ -23,6 +29,7 @@ Enabling such use cases across multiple viewpoints helps in understanding the ob
 To see the system requirements and other installations, see the following guides:
 
 - [Get Started](./docs/user-guide/get-started.md): Follow step-by-step instructions to set up the application.
+- [Bring Your Own Data](./docs/user-guide/get-started/bring-your-own-data.md): See what videos and scene data to prepare.
 - [System Requirements](./docs/user-guide/get-started/system-requirements.md): Check the hardware and software requirements for deploying the application.
 
 ## How It Works

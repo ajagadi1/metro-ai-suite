@@ -15,6 +15,10 @@ The application can be configured to work with live cameras.
 - **Scene Database** - Pre-configured intersection scene with satellite view of
   tolling area, calibrated cameras and regions of interest.
 
+> [!NOTE]
+> This app ships without sample videos or scene data - see
+> [Bring Your Own Data](./get-started/bring-your-own-data.md) for what to provide.
+
 ## Core (Processing)
 
 - [**Video Analytics**](./how-it-works/perception-layer.md) - Deep Learning Streamer Pipeline Server

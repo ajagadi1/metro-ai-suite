@@ -1,10 +1,16 @@
 # Get Started
 
-This guide provides step-by-step procedure to:
+This guide walks you through setting up and running the Smart Tolling application:
 
-- Set up the agent using the automated setup script for quick deployment.
-- Run predefined tasks to explore its functionality.
-- Learn how to modify configurations to suit specific requirements.
+- Install and launch the full application stack using the provided setup scripts.
+- Verify it's running by checking vehicle detections, dashboards, and events.
+- Learn where to change configuration (cameras, videos, scene data) for your own setup.
+
+> [!IMPORTANT]
+> This app ships without sample videos or scene data - see
+> [Bring Your Own Data](./get-started/bring-your-own-data.md) for what to prepare before you start.
+>
+> Need help running this app? Contact `<SUPPORT_EMAIL>` and we'll help you get set up.
 
 ## Prerequisites
 
@@ -14,6 +20,8 @@ Before you begin ensure the following:
   [minimum requirements](./get-started/system-requirements.md).
 - **Docker Installation Complete**: Install Docker, For installation instructions, see
   [Get Docker](https://docs.docker.com/get-docker/).
+- **Your Own Videos and Scene Data Ready**: See
+  [Bring Your Own Data](./get-started/bring-your-own-data.md) for the files you need to prepare.
 
 ## Setup Guide
 
@@ -84,6 +92,9 @@ live data.
 
 ![Scenescape Web UI showing the toll scene, cameras and regions](./_assets/smart_tolling_Scenescape_Setup.png)
 
+The example above shows 4 of the 6 camera streams running live at ~30 FPS, using the
+test videos used during development.
+
 ### Grafana UI
 
 - **URL**: [https://localhost/grafana/](https://localhost/grafana/)
@@ -93,6 +104,8 @@ live data.
 ### Node-RED UI
 
 - **URL**: [https://localhost/nodered/](https://localhost/nodered/)
+- **Username**: `<your_nodered_username>` (Check `./smart-tolling/src/secrets/nodered/nodered-admin-username`)
+- **Password**: `<your_nodered_password>` (Check `./smart-tolling/src/secrets/nodered/nodered-admin-password`).
 
 ### InfluxDB UI
 
@@ -105,6 +118,7 @@ live data.
 :hidden:
 
 ./get-started/system-requirements
+./get-started/bring-your-own-data
 
 :::
 hide_directive-->
