@@ -8,7 +8,7 @@ src/secrets/*.auth
 src/secrets/*.token
 src/secrets/supass
 src/dlstreamer-pipeline-server/videos/*.ts
-src/webserver/*.tar.bz2
+src/webserver/scenes/
 src/dlstreamer-pipeline-server/models/axle/
 src/dlstreamer-pipeline-server/models/vehicle_type/
 src/dlstreamer-pipeline-server/models/vehicle_front_rear/

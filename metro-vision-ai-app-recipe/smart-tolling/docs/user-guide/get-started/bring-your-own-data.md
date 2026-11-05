@@ -30,7 +30,8 @@ cameras, or live RTSP streams instead of files, update the matching pipeline's s
 ## 2. Add Your Scene
 
 The app needs a Scenescape "scene": a 3D map with cameras and toll-lane regions calibrated on
-it, exported as a `.tar.bz2` bundle.
+it, exported as a `.zip` archive. At startup, the `scene-uploader` service imports every
+`<scene>/<scene>.zip` found under `src/webserver/scenes/`.
 
 - Build and calibrate your scene using Scenescape's
   [Create a New Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html)
@@ -55,6 +56,22 @@ swapping in your own videos and scene, update for each pipeline in
 
 - The camera ID, to match the cameras defined in your new scene.
 - The detection region (`gvaattachroi`), to match your video resolution and camera framing.
+
+## 5. Models (Automatic)
+
+No action is needed: models are downloaded for you. When you run `init.sh`, it fetches the
+following 3.x INT8 models from the
+[edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources) repository, pinned
+to a fixed commit, and saves them under `src/dlstreamer-pipeline-server/models/`:
+
+- Axle detection
+- Vehicle type detection
+- Vehicle front/rear detection
+- Vehicle color classification
+- License plate detection
+- License plate OCR
+
+Any model that is already in that folder is not downloaded again.
 
 ## Learn More
 
