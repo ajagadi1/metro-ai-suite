@@ -61,7 +61,7 @@ for entry in "${MODELS[@]}"; do
   fi
   echo "Downloading model ${zip_name}..."
   tmp_zip="$(mktemp -d)/${zip_name}"
-  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"; then
+  if ! curl -f -L "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"; then
     echo "Error: Failed to download ${MODEL_URL}/${zip_name}"
     rm -rf "$(dirname "${tmp_zip}")"
     exit 1
@@ -80,7 +80,7 @@ done
 if [ ! -f "${MODELS_DIR}/paddle_ocr_v4/ch_PP-OCRv4_rec_infer.xml" ]; then
   echo "Downloading model license-plate-reader.zip (OCR submodel)..."
   tmp_zip="$(mktemp -d)/license-plate-reader.zip"
-  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "https://github.com/open-edge-platform/edge-ai-resources/raw/${MODEL_REF}/models/license-plate-reader.zip" -o "${tmp_zip}"; then
+  if ! curl -f -L "https://github.com/open-edge-platform/edge-ai-resources/raw/${MODEL_REF}/models/license-plate-reader.zip" -o "${tmp_zip}"; then
     echo "Error: Failed to download license-plate-reader.zip"
     rm -rf "$(dirname "${tmp_zip}")"
     exit 1
