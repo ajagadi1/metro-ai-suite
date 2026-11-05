@@ -6,6 +6,7 @@ This section provides detailed hardware, software, and platform requirements to 
 
 **Operating Systems**
 - Ubuntu 24.04 LTS
+- Ubuntu 26.04 LTS
 
 ## Minimum Requirements
 
