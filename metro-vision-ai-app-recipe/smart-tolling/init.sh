@@ -34,7 +34,13 @@ if [ ${#MISSING_VIDEOS[@]} -gt 0 ]; then
   exit 1
 fi
 
-SCENE_DB="${SOURCE}/webserver/Smart-Tolling.zip"
+# The scene-uploader expects <scenes dir>/<scene>/<scene>.zip; a zip dropped at webserver/Smart-Tolling.zip is moved into place.
+SCENE_DIR="${SOURCE}/webserver/scenes/Smart-Tolling"
+SCENE_DB="${SCENE_DIR}/Smart-Tolling.zip"
+if [ ! -f "${SCENE_DB}" ] && [ -f "${SOURCE}/webserver/Smart-Tolling.zip" ]; then
+  mkdir -p "${SCENE_DIR}"
+  mv "${SOURCE}/webserver/Smart-Tolling.zip" "${SCENE_DB}"
+fi
 if [ ! -f "${SCENE_DB}" ]; then
   echo "Error: Missing scene data file ${SCENE_DB}"
   echo "See docs/user-guide/get-started/bring-your-own-data.md for what to provide."
