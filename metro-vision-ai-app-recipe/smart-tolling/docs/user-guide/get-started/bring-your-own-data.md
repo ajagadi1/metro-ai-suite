@@ -36,7 +36,7 @@ it, exported as a `.tar.bz2` bundle.
   [Create a New Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html)
   and [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/integrate-cameras-and-sensors.html)
   guides.
-- [Export the Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html#exporting-and-importing-the-scene:~:text=of%20a%20scene.-,Exporting%20the%20scene,-%23) Export your scene to `src/webserver/scenes/Smart-Tolling/Smart-Tolling.zip`, keeping this exact name so no further changes are needed. To use a different name, see the next step instead.
+- [Export the Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html#exporting-and-importing-the-scene) Export your scene to `src/webserver/scenes/Smart-Tolling/Smart-Tolling.zip`, keeping this exact name so no further changes are needed. To use a different name, see the next step instead.
 
 ## 3. Update ZIP file name and corresponding directory name (Optional)
 

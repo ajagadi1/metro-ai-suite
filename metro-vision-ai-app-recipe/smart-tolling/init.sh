@@ -34,7 +34,7 @@ if [ ${#MISSING_VIDEOS[@]} -gt 0 ]; then
   exit 1
 fi
 
-SCENE_DB="${SOURCE}/webserver/smart-tolling.tar.bz2"
+SCENE_DB="${SOURCE}/webserver/Smart-Tolling.zip"
 if [ ! -f "${SCENE_DB}" ]; then
   echo "Error: Missing scene data file ${SCENE_DB}"
   echo "See docs/user-guide/get-started/bring-your-own-data.md for what to provide."
