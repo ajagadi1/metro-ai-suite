@@ -4,11 +4,18 @@
 
 **New**:
 
-- Added a hardware information and usage panel (CPU/GPU/NPU) to the Grafana dashboard.
+- Added support for Ubuntu 26.04 LTS
+- Added a new application flow with scenescape based object tracking.
 - Added a QR code to the Grafana dashboard that links to the documentation.
+
+**Removed**:
+
+- Removed helm deployment.
 
 **Improved**:
 
+- More useful hardware telemetry details shown in the system performance dashboard panel in Grafana.
+- Improved the security context by adding authentication to Node-RED container.
 - Consumed the latest DL Streamer version 2026.3.0.
 
 ## Version 1.6.0
