@@ -34,6 +34,13 @@ if [ ${#MISSING_VIDEOS[@]} -gt 0 ]; then
   exit 1
 fi
 
+SCENE_DB="${SOURCE}/webserver/scenes/Smart-Tolling/Smart-Tolling.zip"
+if [ ! -f "${SCENE_DB}" ]; then
+  echo "Error: Missing scene data file ${SCENE_DB}"
+  echo "See docs/user-guide/get-started/bring-your-own-data.md for what to provide."
+  exit 1
+fi
+
 # Download models on demand (skip any model dir that already has a model.xml, e.g. from git).
 MODELS_DIR="${SOURCE}/dlstreamer-pipeline-server/models"
 MODEL_REF="4f002b31fae3af7361b1f43c48c243bd8d513d9b"
