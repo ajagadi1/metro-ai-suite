@@ -34,7 +34,7 @@ if [ ${#MISSING_VIDEOS[@]} -gt 0 ]; then
   exit 1
 fi
 
-SCENE_DB="${SOURCE}/webserver/smart-tolling.tar.bz2"
+SCENE_DB="${SOURCE}/webserver/scenes/Smart-Tolling/Smart-Tolling.zip"
 if [ ! -f "${SCENE_DB}" ]; then
   echo "Error: Missing scene data file ${SCENE_DB}"
   echo "See docs/user-guide/get-started/bring-your-own-data.md for what to provide."
@@ -43,15 +43,15 @@ fi
 
 # Download models on demand (skip any model dir that already has a model.xml, e.g. from git).
 MODELS_DIR="${SOURCE}/dlstreamer-pipeline-server/models"
-MODEL_BRANCH="smart-city"
-MODEL_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/INT8"
+MODEL_REF="4f002b31fae3af7361b1f43c48c243bd8d513d9b"
+MODEL_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/${MODEL_REF}/models/INT8"
 # local_dir:zip_name:folder_inside_zip
 MODELS=(
-  "axle:axle-detection.zip:axle-detection"
-  "vehicle_type:vehicle-type-classification.zip:vehicle-type-classification"
-  "vehicle_front_rear:vehicle-front-rear-detection.zip:vehicle-front-rear-detection"
-  "color_int8_latest:vehicle-color-classification.zip:vehicle-color-classification"
-  "licenseplate_cropped:licenseplate-detection.zip:licenseplate-detection"
+  "axle:axle-detection-3.x.zip:axle3"
+  "vehicle_type:vehicle-type-detection-3.x.zip:vehicle_type3"
+  "vehicle_front_rear:vehicle-front-rear-detection-3.x.zip:vehicle_front_rear3"
+  "color_int8_latest:vehicle-color-classification-3.x.zip:color_int8_latest3"
+  "licenseplate_cropped:licenseplate-detection-3.x.zip:licenseplate_cropped3"
 )
 
 for entry in "${MODELS[@]}"; do
@@ -61,7 +61,7 @@ for entry in "${MODELS[@]}"; do
   fi
   echo "Downloading model ${zip_name}..."
   tmp_zip="$(mktemp -d)/${zip_name}"
-  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"; then
+  if ! curl -f -L "${MODEL_URL}/${zip_name}" -o "${tmp_zip}"; then
     echo "Error: Failed to download ${MODEL_URL}/${zip_name}"
     rm -rf "$(dirname "${tmp_zip}")"
     exit 1
@@ -80,7 +80,7 @@ done
 if [ ! -f "${MODELS_DIR}/paddle_ocr_v4/ch_PP-OCRv4_rec_infer.xml" ]; then
   echo "Downloading model license-plate-reader.zip (OCR submodel)..."
   tmp_zip="$(mktemp -d)/license-plate-reader.zip"
-  if ! curl -k -L -s --fail --retry 3 --retry-delay 2 --retry-all-errors "https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/license-plate-reader.zip" -o "${tmp_zip}"; then
+  if ! curl -f -L "https://github.com/open-edge-platform/edge-ai-resources/raw/${MODEL_REF}/models/license-plate-reader.zip" -o "${tmp_zip}"; then
     echo "Error: Failed to download license-plate-reader.zip"
     rm -rf "$(dirname "${tmp_zip}")"
     exit 1
