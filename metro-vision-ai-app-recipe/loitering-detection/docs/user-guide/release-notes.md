@@ -14,6 +14,7 @@
 - Added a QR code to the Grafana dashboard that links to the documentation.
 - Added support for Ubuntu 26.04 LTS
 - Added a new console UI application flow.
+- Added documentation showcasing NPU value addition.
 
 **Removed**:
 
