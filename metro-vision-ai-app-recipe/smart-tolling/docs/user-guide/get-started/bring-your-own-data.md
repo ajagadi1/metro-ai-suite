@@ -60,7 +60,7 @@ swapping in your own videos and scene, update for each pipeline in
 ## 5. Models (Automatic)
 
 No action is needed: models are downloaded for you. When you run `init.sh`, it fetches the
-following 3.x INT8 models from the
+following models from the
 [edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources) repository, pinned
 to a fixed commit, and saves them under `src/dlstreamer-pipeline-server/models/`:
 
