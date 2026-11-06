@@ -16,7 +16,6 @@ application.
 **New**:
 
 - Added a QR code in app UI that links to the documentation.
-- Added hardware telemetry information in the app via metrics manager.
 
 **Removed**:
 
