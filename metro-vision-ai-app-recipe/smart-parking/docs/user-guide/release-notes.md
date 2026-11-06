@@ -16,6 +16,7 @@
 
 - More useful hardware telemetry details shown in the system performance dashboard panel in Grafana.
 - Improved the security context by adding authentication to Node-RED container.
+- Stability and robustness improvements in the script that calculates stream density.
 - Consumed the latest DL Streamer version 2026.3.0.
 
 ## Version 1.6.0

@@ -25,6 +25,7 @@
 
 - Consolidated the Grafana dashboard's per-stream tables into a single status table.
 - More useful hardware telemetry details shown in the system performance dashboard panel in Grafana.
+- Stability and robustness improvements in the script that calculates stream density.
 - Consumed the latest DL Streamer version 2026.3.0.
 
 ## Version 1.6.0

@@ -15,6 +15,7 @@
 **Improved**:
 
 - Improved the security context by adding authentication to Node-RED container.
+- Stability and robustness improvements in the script that calculates stream density.
 - Consumed the latest DL Streamer Pipeline Server version 2026.3.0.
 - Consumed the latest Scenescape version 2026.3.0.
 
