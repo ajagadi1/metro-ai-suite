@@ -5,7 +5,7 @@
 **New**:
 
 - Added support for Ubuntu 26.04 LTS
-- Added a new application flow with scenescape based object tracking.
+- Added a new application flow with Scenescape based object tracking.
 - Added a QR code to the Grafana dashboard that links to the documentation.
 
 **Removed**:
@@ -33,6 +33,7 @@
 
 - Improved the security context of Grafana and Node-RED containers.
 - Consumed the latest DL Streamer version 2026.2.0.
+- Consumed the latest Scenescape version 2026.3.0.
 
 ## Version 1.5.0
 
