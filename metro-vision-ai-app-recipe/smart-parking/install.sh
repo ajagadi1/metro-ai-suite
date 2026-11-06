@@ -90,7 +90,7 @@ ENV_FILE="${SCRIPT_DIR}/../.env"
 if [ -f "$ENV_FILE" ]; then
   # Remove any existing smart-parking SceneScape settings first
   sed -i -e '/^# SceneScape settings for smart-parking/d' \
-         -e '/^\(SCENESCAPE_ENABLED\|SS_SCENE_DB\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
+         -e '/^\(SCENESCAPE_ENABLED\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
   sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
 
   if [ "$MODE" = "ss" ]; then
@@ -98,7 +98,6 @@ if [ -f "$ENV_FILE" ]; then
 
 # SceneScape settings for smart-parking
 SCENESCAPE_ENABLED=true
-SS_SCENE_DB=smart-parking-ri.tar.bz2
 SS_INFLUX_BUCKET=SS-Parking
 SS_MODELS_SRC=models
 SS_MODELS_TARGET=/home/pipeline-server/models
@@ -123,7 +122,7 @@ docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
   -e YOLOV11S_DOWNLOAD_CONFIRMED=1 \
   -v "${APP_DIR}:/opt/project" \
-   intel/dlstreamer:2026.2.0-ubuntu24 bash -c "$(cat <<EOF
+   intel/dlstreamer:2026.3.0-ubuntu24-rc1 bash -c "$(cat <<EOF
 
 cd /opt/project
 export HOST_IP="${1:-$(hostname -I | cut -f1 -d' ')}"
