@@ -64,6 +64,20 @@ services:
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/licenseplate_cropped:/home/pipeline-server/models/licenseplate_cropped
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/paddle_ocr_v4:/home/pipeline-server/models/paddle_ocr_v4
 
+  # Full command is repeated because Compose replaces list-valued command instead of merging it.
+  scene-uploader:
+    command:
+      - --restauth
+      - /run/secrets/controller.auth
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+      - --wait
+      - "300"
+      - --import-timeout
+      - "150"
+      - https://web.scenescape.intel.com/api/v1
+      - /scenes
+
   prometheus:
     image: prom/prometheus:v3.12.0
     container_name: prometheus
