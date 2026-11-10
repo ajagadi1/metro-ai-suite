@@ -14,6 +14,7 @@ By following this guide, you will learn how to:
 - Install Docker platform: [Installation Guide](https://docs.docker.com/get-docker/).
 - Install Docker Compose tool: [Installation Guide](https://docs.docker.com/compose/install/).
 - OpenVINO toolkit-compatible VLM/LLM. Follow the guide in [section](#3-download-models-one-time) below.
+- If the sample application is used with RTSP streams, set up the RTSP stream source (live camera or test feed), or simulated RTSP stream source using local video files, separately. Refer to [the instructions](../../../live-video-captioning/docs/user-guide/get-started/simulated-rtsp-stream-guide.md) for details.
 
 ## Run the Application
 
