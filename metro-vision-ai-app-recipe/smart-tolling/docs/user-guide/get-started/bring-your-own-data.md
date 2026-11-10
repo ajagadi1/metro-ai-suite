@@ -57,12 +57,9 @@ swapping in your own videos and scene, update for each pipeline in
 - The camera ID, to match the cameras defined in your new scene.
 - The detection region (`gvaattachroi`), to match your video resolution and camera framing.
 
-## 5. Models (Automatic)
+## 5. Models
 
-No action is needed: models are downloaded for you. When you run `init.sh`, it fetches the
-following models from the
-[edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources) repository, pinned
-to a fixed commit, and saves them under `src/dlstreamer-pipeline-server/models/`:
+When you run init.sh, it downloads the model files listed below from the [edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources) repository, pinned to a specific fixed commit, and stores them in `src/dlstreamer-pipeline-server/models/`
 
 - Axle detection
 - Vehicle type detection
@@ -71,7 +68,9 @@ to a fixed commit, and saves them under `src/dlstreamer-pipeline-server/models/`
 - License plate detection
 - License plate OCR
 
-Any model that is already in that folder is not downloaded again.
+Models that are already present in that folder are not downloaded again.
+
+If your dataset requires different models, we recommend training them to meet your specific requirements using [Geti™](https://github.com/open-edge-platform/geti) and then integrating them into the application accordingly.
 
 ## Learn More
 
