@@ -12,20 +12,12 @@ This section provides detailed hardware, software, and platform requirements to 
 
 | **Component**       | **Minimum Requirement** |
 |---------------------|-------------------------|
-| **Processor**       | Intel® Core™ Ultra Processor (Series 1 and above) or Intel® Core™ Processor Series 3, with Intel® HD Graphics   |
-| **Memory**          | 16 GB                   |
+| **Processor**       | Intel® Core™ Ultra Processor Series 3 (PTL 358H)
+| **Memory**          | 32 GB                   |
 | **Disk Space**      | 128 GB SSD              |
-| **GPU/Accelerator** | Integrated GPU          |
+| **GPU/Accelerator** | Integrated GPU         |
 | **NPU**             | Required for LPR OCR and vehicle color classification |
 
-### Validated Platforms
-
-| Product / Family     | CPU |  iGPU |  NPU |
-|----------------------|-----------|------------|-----------|
-| Intel® Core™ Ultra Processors (Series 3, 2, 1) | ✓         | ✓          | ✓         |
-| Intel® Core™ Processors Series 3 | ✓         | ✓          | ✓         |
-
-**Validated on Intel® Arc™ dGPU models:** A770, B580, B60, and B50.
 
 > [!NOTE]
 > Users can also create apps tailored to their use case using models supported by DL Streamer.

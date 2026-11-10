@@ -56,6 +56,7 @@ Generate the 'docker-compose.yml' file:
 Start the application stack using Docker Compose:
 
 ```bash
+export SUPASS=$(cat ./smart-tolling/src/secrets/supass)
 docker compose up -d
 ```
 
@@ -99,7 +100,7 @@ test videos used during development.
 
 - **URL**: [https://localhost/grafana/](https://localhost/grafana/)
 - **Username**: `admin`
-- **Password**: You will be prompted to set one on first login.
+- **Password**: `admin` (You will be prompted to change it on first login.)
 
 ### Node-RED UI
 
