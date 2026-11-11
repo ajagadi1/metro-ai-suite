@@ -35,6 +35,8 @@ To go back to the default application, run `./install.sh loitering-detection` ag
 
 Every sample video is looped into an RTSP stream by the default application
 (`rtsp://rtsp-server:8554/cam-<N>`), and the DL Streamer Pipeline Server reads those streams.
+(The Console UI installation does not start the RTSP services and reads the video files
+directly.)
 Stream Manager reads the same streams, so the clip is cut from the original video, without the
 detection overlay.
 
@@ -154,6 +156,7 @@ docker compose up -d
 | `STREAM_MANAGER_IMAGE` | `intel/stream-manager:latest` | Stream Manager image. |
 | `STREAM_MANAGER_SHM_SIZE` | `1g` | Shared memory for the stream buffers. Docker's default of 64 MB is too small. |
 | `RTSP_FEEDER_CODEC_ARGS` | libx264, keyframe every 30 frames, no B-frames | ffmpeg arguments for the looped sample videos (see below). |
+| `RTSP_SOURCES` | `true` | Set by `install.sh` (`false` for the Console UI installation): whether `sample_start.sh` reads the RTSP streams or the video files. Do not edit. |
 
 ## Requirements and limitations
 
