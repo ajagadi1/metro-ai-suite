@@ -15,6 +15,12 @@
 - Added support for Ubuntu 26.04 LTS
 - Added a new console UI application flow.
 - Added documentation showcasing NPU value addition.
+- The sample videos are now looped into RTSP streams (MediaMTX and FFmpeg) and read by the
+  pipelines as RTSP sources. The Console UI installation is unchanged and still reads the files.
+- Added an optional Stream Manager overlay (`./install.sh loitering-detection-sm`) that saves a
+  video clip of the original stream for every loitering event, from 5 seconds before loitering
+  starts until it stops. See
+  [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
 
 **Removed**:
 
