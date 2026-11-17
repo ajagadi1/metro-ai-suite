@@ -1,61 +1,68 @@
-#!/usr/bin/env python3
-"""Records the original camera stream through Stream Manager while people loiter.
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+"""gvapython stage for the loitering-detection pipelines (one instance per camera pipeline).
 
-Input : rows published by mqtt-table-flattener on <prefix>/<N>/<suffix> (one per loitering
-        object per second, only once the dwell threshold is crossed).
-Output: clips/cam-<N>/<start>_<recording_id>.mp4 and one line per recording in clips/events.jsonl.
+Placed after gvametaconvert, so every frame already carries the per-frame metadata JSON
+(the same object_tracking/<N> payload that the former mqtt-table-flattener and
+loitering-event-recorder services consumed over MQTT). Per frame it:
 
-One recording session per camera: the first loiterer starts it (with PRE_EVENT_SEC of
-pre-roll), later loiterers join it, and it stops STOP_GRACE_SEC after the last one is gone.
+* publishes one row per loitering object (dwell >= threshold) to
+  <topic_prefix>/<camera_id>/<topic_suffix>, at most once per PUBLISH_INTERVAL_SEC.
+  This is the feed for the Grafana MQTT table panel.
+* when SM_URL is set, feeds the same rows to a per-camera recorder. It starts a Stream
+  Manager recording on the first loiterer and stops it after the last one leaves.
+  Finished recordings are deleted from Stream Manager RECORD_CLEANUP_SEC after they end.
+
+Work on the streaming thread is limited to JSON parsing, an in-memory update and a
+non-blocking MQTT publish. Stream Manager HTTP calls run on the tick thread.
+
+Per-camera configuration is passed through the gvapython "arg" property as a JSON object:
+  {"camera_id": "1", "source_uri": "rtsp://rtsp-server:8554/cam-1",
+   "topic_prefix": "object_tracking", "topic_suffix": "loiterstatus", "threshold": 5.0}
 """
-import calendar
 import json
 import logging
 import os
-import queue
 import re
-import shutil
 import threading
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
+import weakref
 from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
 MQTT_HOST = os.environ.get("MQTT_HOST", "broker")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
-SOURCE_TOPIC_PREFIX = os.environ.get("SOURCE_TOPIC_PREFIX", "object_tracking")
-DEST_TOPIC_SUFFIX = os.environ.get("DEST_TOPIC_SUFFIX", "loiterstatus")
-SM_URL = os.environ.get("SM_URL", "http://stream-manager:8080/v1").rstrip("/")
-CAMERA_IDS = [c.strip() for c in os.environ.get("CAMERA_IDS", "1,2,3,4").split(",") if c.strip()]
-RTSP_URL_TEMPLATE = os.environ.get("RTSP_URL_TEMPLATE", "rtsp://rtsp-server:8554/cam-{id}")
+PUBLISH_INTERVAL_SEC = float(os.environ.get("PUBLISH_INTERVAL_SEC", "1.0"))
+# Empty SM_URL disables recording; the table rows are published either way.
+SM_URL = os.environ.get("SM_URL", "").rstrip("/")
 SM_BUFFER_LENGTH = int(os.environ.get("SM_BUFFER_LENGTH", "30"))
 PRE_EVENT_SEC = min(float(os.environ.get("PRE_EVENT_SEC", "5")), SM_BUFFER_LENGTH)
 STOP_GRACE_SEC = float(os.environ.get("STOP_GRACE_SEC", "3"))
 MAX_SESSION_SEC = float(os.environ.get("MAX_SESSION_SEC", "300"))
-DELETE_REMOTE = os.environ.get("DELETE_REMOTE_AFTER_DOWNLOAD", "true").lower() == "true"
-CLIPS_DIR = os.environ.get("CLIPS_DIR", "/clips")
+RECORD_CLEANUP_SEC = float(os.environ.get("RECORD_CLEANUP_SEC", "120"))
 
 TICK_SEC = 0.5
+RECORD_SWEEP_SEC = 10.0
 STREAM_CHECK_OK_SEC = 10.0
 STREAM_CHECK_PENDING_SEC = 2.0
 RETRY_BACKOFF_SEC = 5.0
 MAX_STOP_ATTEMPTS = 5
-FINALIZE_TIMEOUT_SEC = 180.0
-DOWNLOAD_ATTEMPTS = 3
-FINALIZER_THREADS = 2
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
-TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$")
 
-log = logging.getLogger("loitering-event-recorder")
+log = logging.getLogger("loitering-events")
+if not log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    log.addHandler(_handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
 
 # Stream Manager is only reached on the compose network, never through a proxy.
 _opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_index_lock = threading.Lock()
-_finalize_queue = queue.Queue()
 
 
 class SMError(Exception):
@@ -94,33 +101,20 @@ def wall_to_ts(t):
     return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 
 
-def ts_to_ns(ts):
-    m = TS_RE.match(ts)
-    if not m:
-        raise ValueError(f"unexpected timestamp {ts!r}")
-    secs = calendar.timegm(time.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S"))
-    return secs * 10**9 + int((m.group(2) or "").ljust(9, "0")[:9])
-
-
-def track_snapshot(history):
-    return [
-        {
-            "track_id": i["track_id"],
-            "zone": i["zone"],
-            "type": i["type"],
-            "detected_at": wall_to_ts(i["detected_wall"]),
-            "last_seen_at": wall_to_ts(i["seen_wall"]),
-            "max_dwell_sec": i["max_dwell"],
-        }
-        for i in history.values()
-    ]
+def sm_ts_to_wall(ts):
+    # Stream Manager sends nanosecond RFC 3339 timestamps; datetime keeps microseconds only.
+    base, _, frac = ts.rstrip("Z").partition(".")
+    dt = datetime.strptime(base, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    return dt.timestamp() + (float("0." + frac[:9]) if frac else 0.0)
 
 
 class Camera:
-    def __init__(self, cam_id):
+    """Recording state machine for one camera. Only ever driven by its tick thread and on_row()."""
+
+    def __init__(self, cam_id, source_uri):
         self.id = cam_id
         self.sensor_id = f"cam-{cam_id}"
-        self.source_uri = RTSP_URL_TEMPLATE.format(id=cam_id)
+        self.source_uri = source_uri
         self.lock = threading.Lock()
         self.active = {}  # (track, zone) -> info, only objects currently loitering
         self.history = None  # (track, zone) -> info for the open session, None when idle
@@ -129,6 +123,7 @@ class Camera:
         self.stream_id = None
         self.stream_ok = False
         self.next_stream_check = 0.0
+        self.next_sweep = 0.0
         self.retry_at = 0.0
 
     def on_row(self, row):
@@ -177,9 +172,41 @@ class Camera:
             log.warning("%s: stream check failed: %s", self.sensor_id, e)
         self.next_stream_check = now + (STREAM_CHECK_OK_SEC if self.stream_ok else STREAM_CHECK_PENDING_SEC)
 
+    def sweep_records(self, now):
+        if now < self.next_sweep:
+            return
+        self.next_sweep = now + RECORD_SWEEP_SEC
+        cutoff = time.time() - RECORD_CLEANUP_SEC
+        cursor = None
+        try:
+            while True:
+                path = "/records" + (f"?cursor={cursor}" if cursor else "")
+                page = sm_request("GET", path)
+                for rec in page.get("items", []):
+                    rec_id = rec.get("recording_id", "")
+                    if rec.get("sensor_id") != self.sensor_id or rec.get("state") == "recording":
+                        continue
+                    if not ID_RE.match(rec_id):
+                        continue
+                    if rec.get("state") != "failed":
+                        if not rec.get("end_ts") or sm_ts_to_wall(rec["end_ts"]) > cutoff:
+                            continue
+                    try:
+                        sm_request("DELETE", f"/records/{rec_id}")
+                        log.info("%s: deleted recording %s", self.sensor_id, rec_id)
+                    except SMError as e:
+                        if e.code != "recording_not_found":
+                            log.warning("%s: cannot delete recording %s: %s", self.sensor_id, rec_id, e)
+                cursor = page.get("next_cursor")
+                if not cursor:
+                    break
+        except SMError as e:
+            log.warning("%s: record sweep failed: %s", self.sensor_id, e)
+
     def tick(self):
         now = time.monotonic()
         self.refresh_stream(now)
+        self.sweep_records(now)
         with self.lock:
             for key in [k for k, i in self.active.items() if now - i["seen_mono"] > STOP_GRACE_SEC]:
                 del self.active[key]
@@ -248,137 +275,124 @@ class Camera:
                 log.warning("%s: stop failed (%s), will retry", self.sensor_id, e)
                 return
             log.error("%s: dropping recording %s: %s", self.sensor_id, session["recording_id"], e)
-            self._end_session(reason, None)
+            self._end_session(reason)
             return
         log.info("%s: recording %s stopped (%s)", self.sensor_id, session["recording_id"], reason)
-        self._end_session(reason, session)
+        self._end_session(reason)
 
-    def _end_session(self, reason, session):
+    def _end_session(self, reason):
         with self.lock:
-            tracks = track_snapshot(self.history or {})
             self.history = None
             old, self.session = self.session, None
         self.carry_segment = old["segment"] + 1 if reason == "max session length" else 0
-        if session is not None:
-            session["camera"] = self
-            session["tracks"] = tracks
-            _finalize_queue.put(session)
 
 
-def finalize(session):
-    cam, rid = session["camera"], session["recording_id"]
-    if not ID_RE.match(rid):
-        log.error("%s: refusing unexpected recording id %r", cam.sensor_id, rid)
-        return
-    deadline = time.monotonic() + FINALIZE_TIMEOUT_SEC
+def _tick_loop(cam_ref):
+    # Holds only a weak reference, so the thread ends when the pipeline element is released.
     while True:
-        try:
-            rec = sm_request("GET", f"/records/{rid}")
-            if rec.get("state") == "ready":
-                break
-            if rec.get("state") == "failed":
-                log.error("%s: recording %s failed: %s", cam.sensor_id, rid, rec.get("error_detail"))
-                return
-        except SMError as e:
-            if e.code == "recording_not_found":
-                log.error("%s: recording %s disappeared", cam.sensor_id, rid)
-                return
-        if time.monotonic() > deadline:
-            log.error("%s: recording %s not ready in time", cam.sensor_id, rid)
-            return
-        time.sleep(1)
-
-    start_ns, end_ns = ts_to_ns(rec["start_ts"]), ts_to_ns(rec["end_ts"])
-    duration = (end_ns - start_ns) / 1e9 - 0.001  # stay inside the recording's end
-    if duration <= 0:
-        log.error("%s: recording %s is empty", cam.sensor_id, rid)
-        return
-    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(start_ns // 10**9))
-    rel_path = os.path.join(f"cam-{cam.id}", f"{stamp}_{rid}.mp4")
-    final_path = os.path.join(CLIPS_DIR, rel_path)
-    os.makedirs(os.path.dirname(final_path), exist_ok=True)
-    query = urllib.parse.urlencode({"start_ts": rec["start_ts"], "duration": f"{duration:.3f}", "format": "mp4"})
-    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
-        try:
-            resp = sm_request("GET", f"/retrieve/{rid}/clip?{query}", accept="video/mp4", timeout=900, stream=True)
-            with resp, open(final_path + ".part", "wb") as f:
-                shutil.copyfileobj(resp, f)
-            os.replace(final_path + ".part", final_path)
-            break
-        except (SMError, OSError) as e:
-            log.warning("%s: clip download for %s failed (%d/%d): %s", cam.sensor_id, rid, attempt, DOWNLOAD_ATTEMPTS, e)
-            if attempt == DOWNLOAD_ATTEMPTS:
-                log.error("%s: giving up on clip %s; recording kept in Stream Manager", cam.sensor_id, rid)
-                return
-            time.sleep(2 * attempt)
-
-    event = {
-        "recording_id": rid, "camera": cam.sensor_id, "clip": rel_path.replace(os.sep, "/"),
-        "start_ts": rec["start_ts"], "end_ts": rec["end_ts"], "segment": session["segment"],
-        "pre_event_sec": session["pre_event"], "tracks": session["tracks"],
-    }
-    if rec.get("error_detail"):
-        event["warning"] = rec["error_detail"]
-    with _index_lock, open(os.path.join(CLIPS_DIR, "events.jsonl"), "a") as f:
-        f.write(json.dumps(event) + "\n")
-    log.info("%s: saved clip %s", cam.sensor_id, final_path)
-
-    if DELETE_REMOTE:
-        try:
-            sm_request("DELETE", f"/records/{rid}")
-        except SMError as e:
-            log.warning("%s: could not delete recording %s: %s", cam.sensor_id, rid, e)
-
-
-def finalizer_loop():
-    while True:
-        session = _finalize_queue.get()
-        try:
-            finalize(session)
-        except Exception:
-            log.exception("finalizing %s failed", session.get("recording_id"))
-
-
-def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    for cam_id in CAMERA_IDS:
-        if not ID_RE.match(cam_id):
-            raise SystemExit(f"invalid camera id {cam_id!r}")
-    cameras = {cam_id: Camera(cam_id) for cam_id in CAMERA_IDS}
-    os.makedirs(CLIPS_DIR, exist_ok=True)
-
-    def on_connect(client, userdata, flags, rc):
-        client.subscribe(f"{SOURCE_TOPIC_PREFIX}/+/{DEST_TOPIC_SUFFIX}")
-
-    def on_message(client, userdata, msg):
-        cam = cameras.get(msg.topic.split("/")[-2])
+        cam = cam_ref()
         if cam is None:
             return
         try:
-            cam.on_row(json.loads(msg.payload))
-        except (ValueError, TypeError, AttributeError):
-            pass
-
-    # paho-mqtt 1.x API, as bundled in the dlstreamer-pipeline-server image
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
-    client.loop_start()
-
-    for _ in range(FINALIZER_THREADS):
-        threading.Thread(target=finalizer_loop, daemon=True).start()
-
-    log.info("watching cameras %s (pre-roll %.0fs, grace %.0fs, max session %.0fs)",
-             ",".join(CAMERA_IDS), PRE_EVENT_SEC, STOP_GRACE_SEC, MAX_SESSION_SEC)
-    while True:
-        for cam in cameras.values():
-            try:
-                cam.tick()
-            except Exception:
-                log.exception("%s: tick failed", cam.sensor_id)
+            cam.tick()
+        except Exception:
+            log.exception("%s: tick failed", cam.sensor_id)
+        del cam
         time.sleep(TICK_SEC)
 
 
-if __name__ == "__main__":
-    main()
+def _load_config(raw):
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    if isinstance(raw, list) and len(raw) == 1:
+        raw = raw[0]
+    if not isinstance(raw, dict):
+        raise ValueError("loitering_events: arg must be a JSON object")
+    return raw
+
+
+class LoiteringEvents:
+    """gvapython class: pass `class=LoiteringEvents function=process_frame` in the pipeline."""
+
+    def __init__(self, config=None):
+        cfg = _load_config(config)
+        self.camera_id = str(cfg.get("camera_id", ""))
+        if not ID_RE.match(self.camera_id):
+            raise ValueError(f"loitering_events: invalid camera_id {self.camera_id!r}")
+        prefix = cfg.get("topic_prefix", "object_tracking")
+        suffix = cfg.get("topic_suffix", "loiterstatus")
+        self.topic = f"{prefix}/{self.camera_id}/{suffix}"
+        self.threshold = float(cfg.get("threshold", 5.0))
+        self._last_publish = 0.0
+
+        # paho-mqtt 1.x API, as bundled in the dlstreamer-pipeline-server image
+        self._mqtt = mqtt.Client()
+        self._mqtt.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
+        self._mqtt.loop_start()
+
+        self.camera = None
+        if SM_URL:
+            source_uri = cfg.get("source_uri", "")
+            if not source_uri:
+                raise ValueError("loitering_events: source_uri is required when recording is enabled")
+            self.camera = Camera(self.camera_id, source_uri)
+            threading.Thread(target=_tick_loop, args=(weakref.ref(self.camera),), daemon=True).start()
+            log.info("cam-%s: recording enabled (pre-roll %.0fs, grace %.0fs, max session %.0fs)",
+                     self.camera_id, PRE_EVENT_SEC, STOP_GRACE_SEC, MAX_SESSION_SEC)
+        else:
+            log.info("cam-%s: recording disabled (SM_URL not set)", self.camera_id)
+        log.info("cam-%s: publishing loitering rows to %s (threshold %.1fs)",
+                 self.camera_id, self.topic, self.threshold)
+
+    def __del__(self):
+        try:
+            self._mqtt.loop_stop()
+            self._mqtt.disconnect()
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    def process_frame(self, frame):
+        try:
+            self._process(frame)
+        except Exception:  # pylint: disable=broad-except
+            # Never let an analytics-side error break the pipeline
+            log.exception("cam-%s: frame processing failed", self.camera_id)
+        return True
+
+    def _process(self, frame):
+        messages = frame.messages()
+        if not messages:
+            return
+        payload = json.loads(messages[-1])
+        # gvapython delivers the unwrapped message; the MQTT topic wraps it under "metadata"
+        objects = payload.get("objects") or payload.get("metadata", {}).get("objects", [])
+
+        rows = []
+        for obj in objects:
+            dwell_times = obj.get("dwell_times")
+            if not dwell_times:
+                continue
+            dwell = dwell_times[0]
+            dwell_sec = dwell.get("dwell_time_sec", 0)
+            if dwell_sec < self.threshold:
+                continue
+            rows.append({
+                "Stream": self.camera_id,
+                "Track ID": obj.get("id"),
+                "Type": obj.get("roi_type"),
+                "Zone": dwell.get("zone_id"),
+                "Dwell Time (s)": round(dwell_sec, 1),
+            })
+        if not rows:
+            return
+
+        if self.camera is not None:
+            for row in rows:
+                self.camera.on_row(row)
+
+        # Throttle the table feed the same way the former flattener did (one publish per interval)
+        now = time.monotonic()
+        if now - self._last_publish >= PUBLISH_INTERVAL_SEC:
+            self._last_publish = now
+            for row in rows:
+                self._mqtt.publish(self.topic, json.dumps(row), qos=0)
