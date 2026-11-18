@@ -1,5 +1,25 @@
 # Release Notes: Loitering Detection
 
+## Unreleased
+
+**New**:
+
+- Added the `loitering_events` gvapython element to each object tracking pipeline. It replaces
+  the `mqtt-table-flattener` and `loitering-event-recorder` services. It publishes the
+  `object_tracking/<N>/loiterstatus` rows for the Grafana table and starts and stops Stream
+  Manager recordings.
+
+**Changed**:
+
+- The Stream Manager overlay records only start and stop. Recordings stay in the
+  `stream-manager-data` volume, not on the host. Recordings are not deleted automatically.
+  See [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
+
+**Removed**:
+
+- Removed the `mqtt-table-flattener` sidecar and the `loitering-event-recorder` sidecar.
+- Removed the host `clips/` folder, the `events.jsonl` event index, and clip download.
+
 ## Version 1.8.0
 
 **New**:

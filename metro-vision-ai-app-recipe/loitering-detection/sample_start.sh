@@ -58,6 +58,9 @@ function run_sample() {
         },
         "loitering-watermark-properties": {
             "loitering-threshold": ${LOITERING_THRESHOLD_SEC:-5.0}
+        },
+        "loitering-events-properties": {
+            "arg": "{\"camera_id\": \"$x\", \"source_uri\": \"$source_uri\", \"topic_prefix\": \"${SOURCE_TOPIC_PREFIX:-object_tracking}\", \"topic_suffix\": \"${DEST_TOPIC_SUFFIX:-loiterstatus}\", \"threshold\": ${LOITERING_THRESHOLD_SEC:-5.0}}"
         }
     }
   }
