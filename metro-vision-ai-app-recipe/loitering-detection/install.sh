@@ -188,8 +188,7 @@ fi
 #   no RTSP containers); loops the sample videos into rtsp://rtsp-server:8554/cam-<N>, read by
 #   the pipelines (and Stream Manager). RTSP_SOURCES in .env tells sample_start.sh which to use.
 # - compose-stream-manager-overlay.yml: ENABLE_STREAM_MANAGER=true, set by the top-level
-#   install.sh for "loitering-detection-sm". DLSPS's loitering_events element writes the
-#   clips into the bind-mounted clips/ dir, so DLSPS's user (uid 1000) must be able to write there.
+#   install.sh for "loitering-detection-sm". Recordings are kept in the stream-manager-data volume.
 ##############################################################################
 if [ -f ../docker-compose.yml ]; then
   OVERLAYS=()
@@ -201,8 +200,6 @@ if [ -f ../docker-compose.yml ]; then
     ENV_UPDATES+=("RTSP_SOURCES=true")
   fi
   if [ "${ENABLE_STREAM_MANAGER:-false}" = "true" ]; then
-    mkdir -p clips
-    ENV_UPDATES+=("CLIPS_UID=$(id -u)" "CLIPS_GID=$(id -g)")
     OVERLAYS+=(-f loitering-detection/compose-stream-manager-overlay.yml)
   fi
   for kv in "${ENV_UPDATES[@]}"; do

@@ -146,13 +146,14 @@ Stream Manager overlay, see also
      the provided compose template sets. Add the name of your RTSP server if you use another
      one, because CIDR ranges in `no_proxy` are not always honoured.
 
-2. **No clips are saved**
+2. **No recordings are created**
 
-   - Confirm the services exist (`loitering-event-recorder` and `stream-manager` appear only
-     with `./install.sh loitering-detection-sm`) and read the recorder logs:
+   - Confirm the Stream Manager overlay is installed (`stream-manager` appears only with
+     `./install.sh loitering-detection-sm`) and read the `loitering_events` logs from the pipeline
+     server:
 
      ```bash
-     docker compose logs loitering-event-recorder
+     docker compose logs dlstreamer-pipeline-server | grep loitering-events
      ```
 
    - Confirm that loitering rows are published. An object must stay in a zone for longer than
@@ -170,27 +171,22 @@ Stream Manager overlay, see also
      docker compose logs stream-manager | grep 'stream failed'
      ```
 
-     - `describe RTSP source`: the RTSP stream was not up yet. The recorder retries on its own.
+     - `describe RTSP source`: the RTSP stream was not up yet. `loitering_events` retries on its own.
      - `no NTP/keyframe progress within 30s`: the source does not send regular keyframes or
        NTP-based RTCP sender reports. For the sample videos, check `RTSP_FEEDER_CODEC_ARGS` in `.env`.
      - `source timestamp discontinuity`: the stream timestamps jumped by more than a second, for
-       example because the feeder container restarted. The recorder registers the stream again.
+       example because the feeder container restarted. `loitering_events` registers the stream again.
 
-4. **`cannot start recording` in the recorder logs**
+4. **`cannot start recording` in the `loitering_events` logs**
 
    - `capacity_exhausted` (HTTP 429) means Stream Manager has reached its limit of concurrent
-     recordings. `storage_full` (HTTP 507) means its storage quota is full: keep
-     `DELETE_REMOTE_AFTER_DOWNLOAD=true` so recordings are removed after the clip is saved.
-   - `history_unavailable` right after startup is normal; the recorder then records without
+     recordings.
+   - `storage_full` (HTTP 507) means its storage is full. `loitering_events` deletes each
+     recording 120 seconds after it ends, so check that the logs show `deleted recording` lines.
+   - `history_unavailable` right after startup is normal; the element then records without
      pre-roll.
 
-5. **Permission denied when writing to the `clips` folder**
-
-   - The recorder runs as the user that ran `install.sh` (`CLIPS_UID` and `CLIPS_GID` in `.env`).
-     Run `./install.sh loitering-detection-sm` again as the user who owns the folder, or fix the
-     ownership of `loitering-detection/clips`.
-
-6. **The `intel/stream-manager` image cannot be pulled**
+5. **The `intel/stream-manager` image cannot be pulled**
 
    - Build it from the Stream Manager sources (`edge-ai-libraries/microservices/stream-manager`)
      with `make docker-build`, then set `STREAM_MANAGER_IMAGE` in `.env` to the image you built

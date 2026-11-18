@@ -46,8 +46,9 @@ and run the application efficiently.
 **Known limitations**:
 - GPU optimizations require Intel® Integrated/Discrete graphics or compatible accelerators.
 - The optional Stream Manager overlay (`loitering-detection-sm`) additionally needs about 1 GB of
-  shared memory for the stream buffers, extra disk space for the saved clips, and about one more
-  CPU core to re-encode the four looped sample videos.
+  shared memory for the stream buffers, disk space in the `stream-manager-data` volume for
+  recordings waiting to be deleted, and about one more CPU core to re-encode the four looped
+  sample videos.
 
 ## Validation
 
