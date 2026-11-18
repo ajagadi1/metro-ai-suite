@@ -11,7 +11,6 @@ loitering-event-recorder services consumed over MQTT). Per frame it:
   This is the feed for the Grafana MQTT table panel.
 * when SM_URL is set, feeds the same rows to a per-camera recorder. It starts a Stream
   Manager recording on the first loiterer and stops it after the last one leaves.
-  Finished recordings are deleted from Stream Manager RECORD_CLEANUP_SEC after they end.
 
 Work on the streaming thread is limited to JSON parsing, an in-memory update and a
 non-blocking MQTT publish. Stream Manager HTTP calls run on the tick thread.
@@ -42,10 +41,8 @@ SM_BUFFER_LENGTH = int(os.environ.get("SM_BUFFER_LENGTH", "30"))
 PRE_EVENT_SEC = min(float(os.environ.get("PRE_EVENT_SEC", "5")), SM_BUFFER_LENGTH)
 STOP_GRACE_SEC = float(os.environ.get("STOP_GRACE_SEC", "3"))
 MAX_SESSION_SEC = float(os.environ.get("MAX_SESSION_SEC", "300"))
-RECORD_CLEANUP_SEC = float(os.environ.get("RECORD_CLEANUP_SEC", "120"))
 
 TICK_SEC = 0.5
-RECORD_SWEEP_SEC = 10.0
 STREAM_CHECK_OK_SEC = 10.0
 STREAM_CHECK_PENDING_SEC = 2.0
 RETRY_BACKOFF_SEC = 5.0
@@ -101,13 +98,6 @@ def wall_to_ts(t):
     return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 
 
-def sm_ts_to_wall(ts):
-    # Stream Manager sends nanosecond RFC 3339 timestamps; datetime keeps microseconds only.
-    base, _, frac = ts.rstrip("Z").partition(".")
-    dt = datetime.strptime(base, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
-    return dt.timestamp() + (float("0." + frac[:9]) if frac else 0.0)
-
-
 class Camera:
     """Recording state machine for one camera. Only ever driven by its tick thread and on_row()."""
 
@@ -123,7 +113,6 @@ class Camera:
         self.stream_id = None
         self.stream_ok = False
         self.next_stream_check = 0.0
-        self.next_sweep = 0.0
         self.retry_at = 0.0
 
     def on_row(self, row):
@@ -172,41 +161,9 @@ class Camera:
             log.warning("%s: stream check failed: %s", self.sensor_id, e)
         self.next_stream_check = now + (STREAM_CHECK_OK_SEC if self.stream_ok else STREAM_CHECK_PENDING_SEC)
 
-    def sweep_records(self, now):
-        if now < self.next_sweep:
-            return
-        self.next_sweep = now + RECORD_SWEEP_SEC
-        cutoff = time.time() - RECORD_CLEANUP_SEC
-        cursor = None
-        try:
-            while True:
-                path = "/records" + (f"?cursor={cursor}" if cursor else "")
-                page = sm_request("GET", path)
-                for rec in page.get("items", []):
-                    rec_id = rec.get("recording_id", "")
-                    if rec.get("sensor_id") != self.sensor_id or rec.get("state") == "recording":
-                        continue
-                    if not ID_RE.match(rec_id):
-                        continue
-                    if rec.get("state") != "failed":
-                        if not rec.get("end_ts") or sm_ts_to_wall(rec["end_ts"]) > cutoff:
-                            continue
-                    try:
-                        sm_request("DELETE", f"/records/{rec_id}")
-                        log.info("%s: deleted recording %s", self.sensor_id, rec_id)
-                    except SMError as e:
-                        if e.code != "recording_not_found":
-                            log.warning("%s: cannot delete recording %s: %s", self.sensor_id, rec_id, e)
-                cursor = page.get("next_cursor")
-                if not cursor:
-                    break
-        except SMError as e:
-            log.warning("%s: record sweep failed: %s", self.sensor_id, e)
-
     def tick(self):
         now = time.monotonic()
         self.refresh_stream(now)
-        self.sweep_records(now)
         with self.lock:
             for key in [k for k, i in self.active.items() if now - i["seen_mono"] > STOP_GRACE_SEC]:
                 del self.active[key]

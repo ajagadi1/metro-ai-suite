@@ -24,7 +24,7 @@ extend its functionalities to meet their specific needs.
   real-time monitoring, and insightful data visualization.
 - **Loitering Recording (optional):** Records the original camera stream through Stream
   Manager for every loitering event, from 5 seconds before loitering starts until it stops.
-  Recordings are kept for 120 seconds after they end, then deleted.
+  Recordings are kept in Stream Manager until they are removed there.
 - **User-Friendly:** Simplifies configuration and operation through prebuilt scripts and
   configuration files.
 
@@ -43,7 +43,7 @@ The architecture is designed to facilitate seamless integration and operation of
 - **Grafana Dashboard:** A monitoring and visualization tool for analyzing pipeline metrics, logs, and other performance data.
 - **Inputs (Video Files and Cameras):** Provide raw video streams as input data for processing in the pipeline. The sample video files are looped into RTSP streams, so the pipeline reads them the same way as it reads real RTSP cameras.
 - **RTSP Server (MediaMTX) and FFmpeg looper:** Publish the looped sample videos as RTSP streams (`rtsp://rtsp-server:8554/cam-<N>`), one per camera.
-- **Stream Manager (optional overlay):** Reads the same RTSP streams, keeps a short rolling buffer and, on start and stop requests from the `loitering_events` element, records the original video. Recordings are kept in a Docker volume and deleted 120 seconds after they end. See [Record Loitering Clips with Stream Manager](./docs/user-guide/how-to-guides/record-loitering-clips.md).
+- **Stream Manager (optional overlay):** Reads the same RTSP streams, keeps a short rolling buffer and, on start and stop requests from the `loitering_events` element, records the original video. Recordings are kept in a Docker volume until they are removed in Stream Manager. See [Record Loitering Clips with Stream Manager](./docs/user-guide/how-to-guides/record-loitering-clips.md).
 - **Nginx:** is a high-performance web server and reverse proxy that provides TLS termination and unified HTTPS access.
 
 The DL Streamer Pipeline Server is a core component, designed to handle video analytics at the edge. It leverages pre-trained deep learning models to perform tasks such as object detection, classification, and tracking in real-time, and the `gvaanalytics` element evaluates each tracked object against configurable zone polygons to compute dwell time — adding or editing zones only requires editing a JSON file, with no pipeline or code changes. This flexibility ensures that users can deploy AI-driven video analytics solutions quickly and efficiently, without the need for extensive coding or deep learning expertise.

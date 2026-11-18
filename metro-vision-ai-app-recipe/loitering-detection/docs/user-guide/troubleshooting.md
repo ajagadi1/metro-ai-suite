@@ -181,8 +181,8 @@ Stream Manager overlay, see also
 
    - `capacity_exhausted` (HTTP 429) means Stream Manager has reached its limit of concurrent
      recordings.
-   - `storage_full` (HTTP 507) means its storage is full. `loitering_events` deletes each
-     recording 120 seconds after it ends, so check that the logs show `deleted recording` lines.
+   - `storage_full` (HTTP 507) means its storage quota is full. Recordings are not deleted
+     automatically, so remove old ones with `DELETE /v1/records/<id>` or recreate the volume.
    - `history_unavailable` right after startup is normal; the element then records without
      pre-roll.
 

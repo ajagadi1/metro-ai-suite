@@ -12,8 +12,7 @@
 **Changed**:
 
 - The Stream Manager overlay records only start and stop. Recordings stay in the
-  `stream-manager-data` volume, not on the host. Ready recordings are deleted 120 seconds after
-  they end (`RECORD_CLEANUP_SEC`), and failed recordings are deleted by a sweep every 10 seconds.
+  `stream-manager-data` volume, not on the host. Recordings are not deleted automatically.
   See [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
 
 **Removed**:

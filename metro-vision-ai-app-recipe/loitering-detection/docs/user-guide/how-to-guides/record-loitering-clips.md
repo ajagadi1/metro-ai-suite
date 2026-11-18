@@ -51,7 +51,7 @@ detection overlay.
    (`POST /v1/records/start`), beginning 5 seconds before the threshold was crossed.
 4. The recording stays open while anyone on that camera is loitering. 3 seconds after the last
    loiterer disappears, the element stops it (`POST /v1/records/stop`).
-5. The recording is kept in Stream Manager. The element deletes it 120 seconds after it ends.
+5. The recording is kept in Stream Manager until it is removed there.
 
 ### Recording strategy
 
@@ -85,12 +85,9 @@ therefore overlap by up to about a second.
 Recordings are kept in Stream Manager, in the `stream-manager-data` Docker volume. Nothing is
 written to the host, and this overlay does not download the video.
 
-- `loitering_events` deletes each recording 120 seconds after it ends (`RECORD_CLEANUP_SEC`).
-  Retrieve a recording from Stream Manager within that time, or it is gone.
-- Recordings that Stream Manager could not complete (`state` `failed`) are deleted by a sweep
-  that runs every 10 seconds.
-- Stream Manager has no expiry of its own. Without the cleanup, recordings would fill its storage
-  (`507 storage_full`).
+- Recordings are not deleted automatically. They accumulate until the storage quota
+  (`RecordingStorageSize`, 10 GiB by default) is reached, and then new recordings fail with
+  `507 storage_full`. Remove old recordings with `DELETE /v1/records/<id>`.
 - The recordings are listed with the Stream Manager REST API (`GET /v1/records`) from inside the
   Docker network. No port is published to the host.
 - `docker compose down -v` removes the volume and every recording in it.
@@ -109,7 +106,6 @@ docker compose up -d
 | `PRE_EVENT_SEC` | `5` | Seconds of footage kept before the loitering threshold is crossed. Must not exceed `SM_BUFFER_LENGTH`. |
 | `STOP_GRACE_SEC` | `3` | Seconds without any loiterer on a camera before its recording is stopped. |
 | `MAX_SESSION_SEC` | `300` | Length at which a session is split into a new recording. `0` means no limit. |
-| `RECORD_CLEANUP_SEC` | `120` | Seconds after a recording ends before it is deleted from Stream Manager. Not in `.env`; set it in the `dlstreamer-pipeline-server` environment of `compose-stream-manager-overlay.yml`. |
 | `SM_BUFFER_LENGTH` | `30` | Seconds of rolling history Stream Manager keeps per stream (5 to 300). It only limits the pre-roll, not the recording length. |
 | `LOITERING_THRESHOLD_SEC` | `5.0` | Dwell time that counts as loitering. `sample_start.sh` passes it to the `loitering_events` element, and it must match the pipeline threshold. |
 | `STREAM_MANAGER_IMAGE` | `intel/stream-manager:latest` | Stream Manager image. |
