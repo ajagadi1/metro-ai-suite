@@ -73,6 +73,10 @@ filing a new issue, review the
   docker compose pull
   ```
 
+  > **Caution**: `docker compose down -v` deletes the named volume that holds the
+  > Node-RED plugin. After running it, repeat the plugin pre-install command
+  > while internet access is available, or Node-RED fails to start offline.
+
   After disconnecting from the internet, complete these steps:
 
   - Export the administrator password as an environment variable:

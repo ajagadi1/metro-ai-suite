@@ -77,6 +77,10 @@ This is a [known issue](https://github.com/open-edge-platform/edge-ai-suites/iss
   docker compose pull
   ```
 
+  > **Caution**: `docker compose down -v` deletes the named volume that holds the
+  > Node-RED plugin. After running it, repeat the plugin pre-install command
+  > while internet access is available, or Node-RED fails to start offline.
+
   After disconnecting from the Internet,
   - Export admin password as environment variable:
 
