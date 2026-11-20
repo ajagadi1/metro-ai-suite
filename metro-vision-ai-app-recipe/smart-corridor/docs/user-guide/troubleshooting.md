@@ -66,6 +66,7 @@ filing a new issue, review the
 
   ```bash
   # Pre-install Node-RED InfluxDB plugin into the named volume
+  # (the container skips the install on start when the plugin is already there)
   docker compose run --rm --no-deps --entrypoint "npm" node-red install node-red-contrib-influxdb
 
   # Pre-pull all container images
