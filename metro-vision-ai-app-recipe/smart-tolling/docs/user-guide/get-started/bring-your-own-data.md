@@ -145,7 +145,7 @@ For each new camera:
    - The `roi=` values of `gvaattachroi`.
 2. Add the video file to `src/dlstreamer-pipeline-server/videos/`.
 3. Add the camera and its calibration to the Scenescape scene. See
-   [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/integrate-cameras-and-sensors.html).
+   [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/2026.3/scenescape/how-to-guides/integrate-cameras-and-sensors.html).
 4. Update the video list in `init.sh`, which checks that the videos exist before starting.
 
 Every pipeline needs more CPU, GPU and NPU capacity. See the next section and
@@ -165,7 +165,7 @@ for the pipelines you can leave out. All 6 video files must be present in either
 
 To use live RTSP cameras instead of files, edit the `pipeline` string of the matching pipeline in
 `src/dlstreamer-pipeline-server/config.json`. See the
-[DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
+[DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
 for pipeline configuration. Replace the file source at the start:
 
 ```text
@@ -240,6 +240,6 @@ them into the application accordingly.
 
 - [Get Started](../get-started.md)
 - [Perception Layer](../how-it-works/perception-layer.md)
-- [Deep Learning Streamer Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html)
-- [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
-- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html)
+- [Deep Learning Streamer Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/index.html)
+- [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
+- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html)
