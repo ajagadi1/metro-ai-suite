@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Color codes for terminal output
@@ -62,12 +62,26 @@ export AGENT_UI_PORT=$(grep -oP '"agent_ui_port"\s*:\s*"\K[^"]+' "$DEPLOYMENT_CO
 export SAMPLE_APP="smart-intersection"
 CLONE_DIR="deps/metro-vision"
 CLONE_PATH="$APP_DIR/$CLONE_DIR"
-export DEPS_DIR="$CLONE_PATH/metro-ai-suite/metro-vision-ai-app-recipe"
-export RI_DIR="$DEPS_DIR/$SAMPLE_APP"
+resolve_dependency_paths() {
+    local subdir
+    DEPENDENCY_SUBDIR="metro-vision-ai-app-recipe"
+    if [ -e "$CLONE_PATH/.git" ]; then
+        for subdir in metro-vision-ai-app-recipe metro-ai-suite/metro-vision-ai-app-recipe; do
+            if git -C "$CLONE_PATH" cat-file -e "HEAD:$subdir/$SAMPLE_APP/install.sh" 2>/dev/null; then
+                DEPENDENCY_SUBDIR="$subdir"
+                break
+            fi
+        done
+    fi
+    export DEPS_DIR="$CLONE_PATH/$DEPENDENCY_SUBDIR"
+    export RI_DIR="$DEPS_DIR/$SAMPLE_APP"
+}
+
+resolve_dependency_paths
 export OVMS_CONFIG_DIR="${APP_DIR}/.ovms"
 export STIA_OVERRIDES_DIR="${APP_DIR}/src/config/smart-intersection-overrides"
-export SI_SETUP_REPO_URL="${SI_SETUP_REPO_URL:-https://github.com/open-edge-platform/edge-ai-suites.git}"
-export SI_SETUP_BRANCH="${SI_SETUP_BRANCH:-release-2026.2.0}"
+export SI_SETUP_REPO_URL="${SI_SETUP_REPO_URL:-https://github.com/open-edge-platform/metro-ai-suite.git}"
+export SI_SETUP_BRANCH="${SI_SETUP_BRANCH:-release-2026.3.0}"
 export RTSP_STREAM_IP="${RTSP_STREAM_IP:-${SI_RTSP_HOST:-}}"
 export RTSP_STREAM_PORT="${RTSP_STREAM_PORT:-8554}"
 
@@ -248,7 +262,7 @@ elif [ "$1" = "--stop" ] || [ "$1" = "--clean" ]; then
         fi
 
         rm -f "${APP_DIR}/docker/tc-resolv.conf" 2>/dev/null || true
-        rm -f "${APP_DIR}/deps/metro-vision/metro-ai-suite/metro-vision-ai-app-recipe/tc-resolv.conf" 2>/dev/null || true
+        rm -f "$DEPS_DIR/tc-resolv.conf" 2>/dev/null || true
 
         echo -e "${GREEN}Cleanup completed successfully. ${NC}"
     fi
@@ -326,31 +340,42 @@ apply_stia_overrides() {
     fi
 }
 
-# Verify if dependencies are setup; if not, clone the required dependency and run install script
-check_and_setup_dependencies() {
-    echo -e "${BLUE}==> Setting up required dependencies ...${NC}"
-
-    if [ ! -d "$DEPS_DIR" ]; then
-        # Run git clone to fetch the dependencies (sparse, shallow)
+prepare_dependency_checkout() {
+    if [ ! -e "$CLONE_PATH/.git" ]; then
         echo -e "${YELLOW}Dependencies not found. Cloning repository...${NC}"
-        git clone --filter=blob:none --sparse --depth 1 \
+        if ! git clone --filter=blob:none --sparse --depth 1 \
             --branch "$SI_SETUP_BRANCH" \
             "$SI_SETUP_REPO_URL" \
-            "$CLONE_PATH"
-        git -C "$CLONE_PATH" sparse-checkout set metro-ai-suite/metro-vision-ai-app-recipe
-
-        # Verify if the git commands were successful
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to clone and set up dependencies${NC}"
+            "$CLONE_PATH"; then
+            echo -e "${RED}Failed to clone dependencies. Check SI_SETUP_REPO_URL, SI_SETUP_BRANCH, and the destination $CLONE_PATH. Existing files were not removed.${NC}"
             return 1
         fi
     fi
 
-    # Check if install.sh exists
+    resolve_dependency_paths
+    if ! git -C "$CLONE_PATH" cat-file -e "HEAD:$DEPENDENCY_SUBDIR/$SAMPLE_APP/install.sh" 2>/dev/null; then
+        echo -e "${RED}Dependency checkout does not contain $SAMPLE_APP/install.sh in a supported layout. Check its repository and revision at $CLONE_PATH.${NC}"
+        return 1
+    fi
+
+    # Repair an incomplete sparse checkout without recloning or discarding local changes.
+    if [ ! -f "$RI_DIR/install.sh" ]; then
+        if ! git -C "$CLONE_PATH" sparse-checkout add "$DEPENDENCY_SUBDIR"; then
+            echo -e "${RED}Failed to populate dependency checkout at $CLONE_PATH. Existing files were not removed.${NC}"
+            return 1
+        fi
+    fi
+
     if [ ! -f "$RI_DIR/install.sh" ]; then
         echo -e "${RED}Installation script not found for dependency : $SAMPLE_APP ${NC}"
         return 1
     fi
+}
+
+# Verify if dependencies are setup; if not, clone the required dependency and run install script
+check_and_setup_dependencies() {
+    echo -e "${BLUE}==> Setting up required dependencies ...${NC}"
+    prepare_dependency_checkout || return 1
 
     # Ensure all required secrets are generated
     if [ -f "$RI_DIR/src/secrets/browser.auth" ] && [ ! -f "$RI_DIR/src/secrets/pgserver/pgserver.env" ]; then
@@ -360,11 +385,8 @@ check_and_setup_dependencies() {
 
     # Run the installation script
     echo -e "${BLUE}==> Running installation script for smart-intersection...${NC}"
-    #cd $RI_DIR && ./install.sh && cd - > /dev/null
-    cd $RI_DIR && ./install.sh && cd -
-    if [ $? -ne 0 ]; then
+    if ! (cd "$RI_DIR" && ./install.sh); then
         echo -e "${RED}Failed to run install.sh for smart-intersection${NC}"
-        cd - > /dev/null
         return 1
     fi
     echo -e "${GREEN}Installation script completed successfully${NC}"
@@ -613,6 +635,7 @@ ovms_config_has_model() {
 
 # Export and convert a model for OVMS using the model-download ephemeral container.
 # Replaces the previous host-side python venv + export_model.py approach.
+# Keep diagnostics on stderr: stdout is captured as the model identifier.
 export_model_for_ovms() {
     local source_model="$1"
     local target_device="$2"
@@ -620,7 +643,7 @@ export_model_for_ovms() {
     local storage_model_name
 
     if [ -z "$source_model" ]; then
-        echo -e "${RED}ERROR: Missing source model for OVMS export.${NC}"
+        echo -e "${RED}ERROR: Missing source model for OVMS export.${NC}" >&2
         return 1
     fi
 
@@ -630,12 +653,12 @@ export_model_for_ovms() {
 
     local get_model_script="${OVMS_CONFIG_DIR}/get_model.sh"
 
-    echo -e "${BLUE}==> Fetching get_model.sh from edge-ai-libraries...${NC}"
+    echo -e "${BLUE}==> Fetching get_model.sh from edge-ai-libraries...${NC}" >&2
     curl -fsSL "https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/main/microservices/model-download/scripts/get_model.sh" \
-        -o "$get_model_script" || { echo -e "${RED}ERROR: Failed to download get_model.sh${NC}"; return 1; }
+        -o "$get_model_script" || { echo -e "${RED}ERROR: Failed to download get_model.sh${NC}" >&2; return 1; }
     chmod +x "$get_model_script"
 
-    echo -e "${BLUE}==> Downloading/converting model via model-download ephemeral container...${NC}"
+    echo -e "${BLUE}==> Downloading/converting model via model-download ephemeral container...${NC}" >&2
 
     # Pass HuggingFace token via env var if set
     if [ -n "${HUGGINGFACE_TOKEN:-}" ]; then
@@ -650,19 +673,19 @@ export_model_for_ovms() {
         --precision "$weight_format" \
         --device "$target_device" \
         --model-path "${OVMS_CONFIG_DIR}/models" \
-        --plugins openvino
+        --plugins openvino >&2
 
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        echo -e "${RED}ERROR: Model download/conversion failed for '${source_model}' (exit code: ${exit_code}).${NC}"
+        echo -e "${RED}ERROR: Model download/conversion failed for '${source_model}' (exit code: ${exit_code}).${NC}" >&2
         local log_dir="${PWD}/.model_download_logs"
         local latest_log
         latest_log=$(ls -t "${log_dir}"/model_download_*.log 2>/dev/null | head -1)
         if [ -n "$latest_log" ]; then
-            echo -e "${YELLOW}==> Last 30 lines from log: ${latest_log}${NC}"
-            tail -30 "$latest_log"
+            echo -e "${YELLOW}==> Last 30 lines from log: ${latest_log}${NC}" >&2
+            tail -30 "$latest_log" >&2
         else
-            echo -e "${YELLOW}No model download log found in: ${log_dir}${NC}"
+            echo -e "${YELLOW}No model download log found in: ${log_dir}${NC}" >&2
         fi
         return 1
     fi
@@ -679,7 +702,7 @@ export_model_for_ovms() {
         config_rel_dir=$(dirname "${generated_config#${models_root}/}")
 
         # Prefix every base_path value with the directory that config_all.json lives in
-        python3 - "${generated_config}" "${config_rel_dir}" "${models_root}/config.json" << 'PYEOF'
+        python3 - "${generated_config}" "${config_rel_dir}" "${models_root}/config.json" >&2 << 'PYEOF'
 import json, sys
 
 src, prefix, dst = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -694,9 +717,9 @@ with open(dst, "w") as f:
     json.dump(cfg, f, indent=4)
 print(f"Created {dst} with {len(cfg['model_config_list'])} model(s)")
 PYEOF
-        echo -e "${GREEN}==> Created config.json from ${generated_config}${NC}"
+        echo -e "${GREEN}==> Created config.json from ${generated_config}${NC}" >&2
     else
-        echo -e "${YELLOW}WARNING: Could not find generated config_all.json under ${models_root}/openvino_models. OVMS may not start.${NC}"
+        echo -e "${YELLOW}WARNING: Could not find generated config_all.json under ${models_root}/openvino_models. OVMS may not start.${NC}" >&2
     fi
 
     echo "$source_model"
@@ -708,13 +731,13 @@ ensure_ovms_model() {
     local weight_format="$3"
     local ovms_model_config="${OVMS_CONFIG_DIR}/models/config.json"
 
-    echo -e "[ovms-service] ${BLUE}Checking for model: ${YELLOW}${model_name}${NC}"
+    echo -e "[ovms-service] ${BLUE}Checking for model: ${YELLOW}${model_name}${NC}" >&2
 
     if [ -f "${ovms_model_config}" ] && ovms_config_has_model "${ovms_model_config}" "${model_name}"; then
-        echo -e "[ovms-service] ${GREEN}Model ${YELLOW}${model_name}${GREEN} already registered in OVMS config. Skipping export.${NC}"
+        echo -e "[ovms-service] ${GREEN}Model ${YELLOW}${model_name}${GREEN} already registered in OVMS config. Skipping export.${NC}" >&2
         echo "$model_name"
     else
-        echo -e "[ovms-service] ${YELLOW}Model ${RED}${model_name}${YELLOW} not found. Exporting...${NC}"
+        echo -e "[ovms-service] ${YELLOW}Model ${RED}${model_name}${YELLOW} not found. Exporting...${NC}" >&2
 
         export_model_for_ovms \
             "$model_name" \

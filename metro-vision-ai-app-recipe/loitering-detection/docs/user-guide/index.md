@@ -44,6 +44,8 @@ extend its functionalities to meet their specific needs.
   Recordings are kept in Stream Manager until they are removed from there.
 - **User-Friendly:** Simplifies configuration and operation through prebuilt scripts and
   configuration files.
+- **Optional Console UI:** a single page to manage and compare different models simultanously.
+  For details, see how to [Use the Console UI](./how-to-guides/use-console-ui.md).
 
 ## How it works
 
@@ -62,6 +64,7 @@ The architecture is designed to facilitate seamless integration and operation of
 - **RTSP Server (MediaMTX) and FFmpeg looper:** Publish the looped sample videos as RTSP streams (`rtsp://rtsp-server:8554/cam-<N>`), one per camera.
 - **Stream Manager (optional add-on):** Reads the same RTSP streams, keeps a short rolling buffer and, on start and stop requests from the `loitering_events` element, records the original video. Recordings are kept in a Docker volume until they are removed in Stream Manager. See [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
 - **Nginx:** High-performance web server and reverse proxy that provides TLS termination and unified HTTPS access.
+- **Console UI (optional):** Provides a convenient interface for managing the pipelines and viewing results.
 
 The DL Streamer Pipeline Server is a core component, designed to handle video analytics at the
 edge. It leverages pre-trained deep learning models to perform tasks such as object detection,

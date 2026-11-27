@@ -14,16 +14,16 @@ Usage
 -----
   # Use status JSON as anchor (most accurate; matches eval_prefilter_from_webhook --anchor-mode wallclock)
   python tools/render_eval_timeline.py \
-    --srt ../demo/videos/cam_child/child_safety_demo_groundtruth.srt \
-    --events-json /tmp/child_events_92627.json \
-    --status-json /tmp/child_status_92627.json \
-    --source-id cam_child \
-    --ss 40
+    --srt tools/groundtruth/people-detection.srt \
+    --events-json /tmp/sample_events_92627.json \
+    --status-json /tmp/sample_status_92627.json \
+    --source-id cam_eval \
+    --ss 0
 
   # First-event anchor (drifts; use only if no status dump available)
   python tools/render_eval_timeline.py \\
       --srt <gt.srt> --events-json events.json --anchor-mode first-event \\
-      --source-id cam_child --ss 40
+      --source-id cam_eval --ss 0
 
   # Adjust the canvas width (default 100 cols)
   python tools/render_eval_timeline.py ... --width 140
@@ -52,7 +52,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from urllib.request import urlopen
 
 
@@ -116,7 +116,7 @@ def parse_srt(path: str, exclude_pattern: Optional[str]) -> List[GTCue]:
             idx = int(lines[0])
         except ValueError:
             continue
-        tc = re.split(r"\s*-->\s*", lines[1])
+        tc = [p.strip() for p in lines[1].split("-->")]
         if len(tc) != 2:
             continue
         label = " ".join(lines[2:])

@@ -1,0 +1,129 @@
+"""Task content for venue_monitor (use case, English).
+
+Realtime path (/v1/summary, method=SIMPLE, levels=1): only LOCAL_PROMPT runs and must
+emit the three lines SEVERITY / EVENT / DESC, which the default rule evaluator reads.
+Report path (caption-only over an SRT of alerts): MACRO_CHUNK_PROMPT then GLOBAL_PROMPT.
+
+Placeholders filled by the video-summary service: {question} {st_tm} {end_tm} {dur} {past_summary}
+"""
+
+GLOBAL_PROMPT = '''##Task:
+Turn the day's clip results from one public-venue camera into a short report for the site manager: foot-traffic statistics first, then abnormal events.
+
+**Timestamps.** Each entry starts with a clock time `HH:MM:SS` (24-hour, real time). Write times as `HH:MM` or `HH:MM-HH:MM`. Never write "N seconds" or a video offset.
+
+**Entries.** Each SRT entry is one analyzed clip and starts with `[task:<event>:<severity>]`:
+- `fight`           (warn) = people hitting, pushing or grappling
+- `fall`            (warn) = a person falls to the ground
+- `running`         (warn) = a person runs, hops, skips or moves fast
+- `multiple_people` (info) = two or more people visible at the same time
+- `person_present`  (info) = one person walks or stands in the scene
+- `empty`           (info) = nobody visible
+
+**Foot traffic.** Each entry also has `people_count`, the number of distinct people in that clip. The camera only records clips when someone is in view, so these are person-appearances, not unique visitors (the same person may appear in several clips):
+- Total activity = number of clips whose event is not `empty`.
+- Total people = sum of `people_count` over all clips.
+- Crowded moments = number of `multiple_people` clips.
+- Group the clips by clock hour; the peak hour is the hour with the most people; the quiet period is the longest stretch with no clips.
+- Count carefully from the entries; if the count is approximate, say "about".
+
+User question: {question}
+
+##Output template (replace the angle brackets; drop a block that has no content):
+
+Foot traffic: <total people, total activity clips, crowded moments, peak hour with its people count, quiet period>
+
+Hourly distribution:
+- <HH:00-HH:00>: <people> people in <clips> clips
+
+Abnormal events:
+- <fight / fall / running>: <count> — <times>
+
+Key event: <one sentence on the most serious abnormal event, with HH:MM; if none, say no abnormal event was seen>
+
+Suggestion: <one actionable sentence for the site manager>
+
+##Rules:
+- Aggregate; do not repeat every entry.
+- Show at most 8 hourly lines; merge quiet hours.
+- At most 2 sentences per block except the lists.
+- Describe actions, not consequences.
+- If an abnormal event is rare but serious (fight, fall), always name it in "Key event".
+
+##Content to summarize:
+Sub-events are separated by ">|<". Each starts with its start and end time (HH:MM:SS real clock time).
+'''
+
+MACRO_CHUNK_PROMPT = '''##Task:
+Summarize the following clip results of one time window in 3-4 short sentences, keeping the numbers a daily report needs.
+Entries look like `[task:<event>:<severity>] HH:MM:SS description`; the clock time is 24-hour real time. Write `HH:MM` or `HH:MM-HH:MM`, never seconds.
+Start (internal only): {st_tm} s
+End (internal only): {end_tm} s
+User question: {question}
+
+##Output:
+Sentence 1: total clips N (person_present a, multiple_people b, empty c) and total people P (sum of people_count).
+Sentence 2: abnormal events in this window as `<event>: <count> at <HH:MM, ...>`, or "no abnormal events".
+Sentence 3: per clock hour, the people and clip counts, e.g. `14:00-15:00: 18 people in 12 clips`.
+Sentence 4 (optional): anything else worth noting, with HH:MM.
+
+##Rules:
+- Count every entry; do not skip or invent entries.
+- Do not list every entry; do not output "[" or "]".
+
+##Content to summarize:
+Sub-events are separated by ">|<".
+'''
+
+LOCAL_PROMPT = '''
+##Task:
+You are a public-venue activity monitor. Analyze this clip from a fixed camera and decide what the people in the scene are doing.
+Start: {st_tm} s
+End: {end_tm} s
+User question: {question}
+
+##Events (pick exactly one; if several apply, use the highest priority):
+1. fight (warn): two or more people hit, kick, push forcefully or grapple with each other.
+2. fall (warn): a person loses balance and falls to the ground, or lies on the ground after falling.
+3. running (warn): a person runs, jogs, hops, skips, bounds or otherwise moves energetically and clearly faster than a relaxed walk. Cues: both feet leave the ground, bouncing or springy steps, long strides, swinging arms, or covering a large part of the frame within a few frames.
+4. multiple_people (info): two or more different people are visible in the same moment and none of the events above applies. Partial bodies at the frame edge count.
+5. person_present (info): exactly one person walks, stands or sits in the scene at normal pace.
+6. empty (info): no person is visible in the whole clip.
+
+##Evidence rules:
+- Only people count. Shadows, reflections in windows, doors and furniture are not people.
+- Crouching, bending down, sitting down or lying down on purpose is not a fall; a fall needs visible loss of balance.
+- Friendly contact (handshake, hug, walking side by side) is not a fight.
+- A person who hops, skips or bounces while crossing the scene is running, even if the pace looks playful.
+- Only choose person_present or multiple_people when the person moves at a relaxed, steady walking pace.
+- When unsure whether fight or fall happened, choose the next lower event that is clearly visible.
+
+##People count:
+- PEOPLE_COUNT is the number of different people who appear anywhere in the clip, each counted once. Partial bodies at the frame edge count.
+- Use digits only. empty means 0; person_present means 1 or more; multiple_people means 2 or more.
+- Do not count shadows, reflections or people in posters or screens.
+- When unsure whether two views are the same person, count them once.
+
+##Output (exactly four lines, nothing else):
+SEVERITY: warn or info
+EVENT: one phrase from the list above
+DESC: one sentence describing what the person or people are doing and where in the frame
+PEOPLE_COUNT: an integer, digits only
+
+##DESC rules:
+- Describe actions and positions only, for example "A person in a white shirt runs from the right edge toward the door."
+- No speculation about intent or consequences.
+
+##Forbidden:
+- No JSON, no markdown, no brackets, no analysis steps.
+'''
+
+
+T_MINUS_1_PROMPT = '''
+##Context (result of the previous {dur} s, for reference only; do not copy into the output):
+Start: {st_tm} s
+End: {end_tm} s
+{past_summary}
+
+Judge the current clip on its own. If the same people are still visible, keep the same event unless the behavior clearly changed. If a person fell in the previous clip and is still on the ground, keep `fall`.
+'''

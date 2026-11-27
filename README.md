@@ -41,7 +41,7 @@ Metro AI Suite reference implementations and platform blueprints:
 - [Sensor Fusion for Traffic Management](sensor-fusion-for-traffic-management): A platform blueprint that integrates AI inferencing with sensor fusion technology, utilizing multi-modal sensors such as cameras and radars to deliver unparalleled performance, guiding you with designing such sensor fusion capabilities in your application development.
 - [Interactive Digital Avatar](interactive-digital-avatar): A reference implementation for integrating 2D/3D avatars with a backend LLM server to provide real-time and intelligent responses to user queries through speech-based conversational interfaces.
 
-For hardware partner workflow, see the [Metro AI Suite Hardware Partner Workflow](docs/hardware-partner-workflow.md). For developer workflow, see the [Metro AI Suite Developer Workflow](docs/developer-workflow.md).
+For hardware partner workflow, see the [Metro AI Suite Hardware Partner Workflow](https://docs.openedgeplatform.intel.com/dev/OEP-articles/hardware-partner-workflow.html). For developer workflow, see the [Metro AI Suite Developer Workflow](https://docs.openedgeplatform.intel.com/dev/OEP-articles/developer-workflow.html).
 
 ## Contribute
 

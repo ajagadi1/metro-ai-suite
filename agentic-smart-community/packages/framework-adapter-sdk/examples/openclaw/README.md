@@ -49,7 +49,7 @@ bash scripts/install_as_openclaw_plugin.sh prepare
 bash scripts/install_as_openclaw_plugin.sh finalize
 ```
 
-`demo/openclaw-adapter/install.sh` in this repository is exactly that pattern: it delegates both halves to this script and only adds its own demo runtime in the middle.
+`examples/venue-monitor/openclaw-adapter/install.sh` in this repository is exactly that pattern: it delegates both halves to this script and only adds its own example runtime in the middle.
 
 The remaining sections describe the same steps manually.
 

@@ -69,6 +69,8 @@ docker logs nvr-event-router | grep -i "scenescape\|subscribed"
 
 The UI is available at `http://<host_ip>:7860`.
 
+> **Certificate warning:** Smart NVR disables verification for SceneScape HTTPS API calls because the bundled self-signed certificate is issued for `CN=localhost`, which does not match deployment hostnames or IP addresses. `InsecureRequestWarning` is expected; use only on a trusted network or replace the certificate. MQTT TLS is configured separately.
+
 ## Distributed Node Deployment
 
 For distributed deployments where Smart Intersection runs on a dedicated machine

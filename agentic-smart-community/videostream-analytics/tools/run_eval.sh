@@ -1,33 +1,22 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_eval.sh — End-to-end prefilter evaluation across all demo scenarios.
+# run_eval.sh — End-to-end prefilter evaluation on the open-source
+# people-detection sample video (downloaded automatically when missing).
 #
 # Background
-#   The demo has 4 evaluation scenarios: child (child_safety), fridge
-#   (refrigerator_monitor) and two elder_wakeup videos (elder_day1 / elder_day2).
-#   Fridge runs with prefilter=disabled (target_classes=person would filter out
-#   hand-only motion), so its "evaluation" is a smoke test only
-#   (motion events arrive → PASS).
-#
-# Scenarios (matching scripts/test-videostream-analytics.sh)
-#   child       cam_child            VSA_EVAL_CHILD_VIDEO              ss=40 prefilter=on  GT yes
-#   fridge      cam_fridge           VSA_EVAL_FRIDGE_VIDEO             ss=0  prefilter=off GT yes (4 [TAKE] cues)
-#   elder_day1  cam_elder_bedroom    VSA_EVAL_ELDER_VIDEO              ss=0  prefilter=on  GT yes (excl [EMPTY])
-#   elder_day2  cam_elder_bedroom_2  VSA_EVAL_ELDER_2_VIDEO            ss=0  prefilter=on  GT yes (excl [EMPTY])
+#   One scenario, `sample`: cam_eval pushes people-detection.mp4 (50 s, four
+#   passes of 1-3 people crossing an otherwise empty room) with the person
+#   prefilter on, then compares motion events to tools/groundtruth/
+#   people-detection.srt (4 cues).
 #
 # Usage
-#   bash tools/run_eval.sh                       # all 4 scenarios sequentially
-#   bash tools/run_eval.sh --scenario child      # one scenario
-#   bash tools/run_eval.sh --scenario elder_day1
-#   bash tools/run_eval.sh --wait-mode short     # use shorter waits for smoke test
+#   bash tools/run_eval.sh                       # run the sample scenario
+#   bash tools/run_eval.sh --wait-mode short     # shorter wait for a smoke test
 #   bash tools/run_eval.sh --keep                # leave services running
 #
 # Env overrides
-#   VSA_EVAL_CHILD_VIDEO    — child scenario MP4
-#   VSA_EVAL_FRIDGE_VIDEO   — fridge scenario MP4
-#   VSA_EVAL_ELDER_VIDEO    — elder day-one scenario MP4
-#   VSA_EVAL_ELDER_2_VIDEO  — elder day-two scenario MP4
-#   VIDEOS_DIR              — optional root for tracked ground-truth SRT files
+#   VSA_EVAL_VIDEO  — use your own MP4 instead of the downloaded sample
+#                     (the bundled ground truth then no longer applies)
 #   MEDIAMTX_CONFIG — defaults to tools/mediamtx.yml in this repo.
 #   MEDIAMTX_BIN, RTSP_PORT, WEBHOOK_PORT, ANALYTICS_PORT — see code below.
 # =============================================================================
@@ -35,10 +24,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_DIR="$(dirname "$PROJECT_DIR")"
 PYTHON="${PROJECT_DIR}/.venv/bin/python"
 
-VIDEOS_DIR="${VIDEOS_DIR:-$REPO_DIR/demo/videos}"
+SAMPLE_URL="https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/people-detection.mp4"
+SAMPLE_VIDEO="$SCRIPT_DIR/.cache/people-detection.mp4"
+GT_SAMPLE="$SCRIPT_DIR/groundtruth/people-detection.srt"
 
 MEDIAMTX_BIN="${MEDIAMTX_BIN:-$HOME/.local/bin/mediamtx}"
 MEDIAMTX_CONFIG="${MEDIAMTX_CONFIG:-$SCRIPT_DIR/mediamtx.yml}"
@@ -46,19 +36,9 @@ RTSP_PORT="${RTSP_PORT:-8554}"
 WEBHOOK_PORT="${WEBHOOK_PORT:-9999}"
 ANALYTICS_PORT="${ANALYTICS_PORT:-8999}"
 
-VIDEO_CHILD="${VSA_EVAL_CHILD_VIDEO:-}"
-GT_CHILD="$VIDEOS_DIR/cam_child/child_safety_demo_groundtruth.srt"
+VIDEO_SAMPLE="${VSA_EVAL_VIDEO:-}"
 
-VIDEO_FRIDGE="${VSA_EVAL_FRIDGE_VIDEO:-}"
-GT_FRIDGE="$VIDEOS_DIR/cam_fridge/demo006-2_expanded_20min_v2_groundtruth.srt"
-
-VIDEO_ELDER_DAY1="${VSA_EVAL_ELDER_VIDEO:-}"
-GT_ELDER_DAY1="$VIDEOS_DIR/cam_elder_bedroom/day1_elder_wakeup_groundtruth.srt"
-
-VIDEO_ELDER_DAY2="${VSA_EVAL_ELDER_2_VIDEO:-}"
-GT_ELDER_DAY2="$VIDEOS_DIR/cam_elder_bedroom_2/day2_elder_wakeup_groundtruth.srt"
-
-SCENARIOS=("child" "fridge" "elder_day1" "elder_day2")
+SCENARIOS=("sample")
 WAIT_MODE="full"
 KEEP=false
 
@@ -66,17 +46,16 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --scenario)
             case "$2" in
-                child|fridge|elder_day1|elder_day2|all) ;;
-                *) echo "Unknown scenario: $2 (valid: child|fridge|elder_day1|elder_day2|all)"; exit 1 ;;
+                sample|all) ;;
+                *) echo "Unknown scenario: $2 (valid: sample|all)"; exit 1 ;;
             esac
-            if [[ "$2" != "all" ]]; then SCENARIOS=("$2"); fi
             shift 2 ;;
         --wait-mode)
             case "$2" in full|short) WAIT_MODE="$2"; shift 2 ;;
                 *) echo "wait-mode must be full|short"; exit 1 ;;
             esac ;;
         --keep) KEEP=true; shift ;;
-        -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -101,14 +80,14 @@ cleanup() {
         return
     fi
     info "Cleaning up..."
-    [[ -n "$FFMPEG_PID" ]] && kill "$FFMPEG_PID" 2>/dev/null || true
+    if [[ -n "$FFMPEG_PID" ]]; then kill "$FFMPEG_PID" 2>/dev/null || true; fi
     pkill -f "ffmpeg.*live/" 2>/dev/null || true
     # Stop any source we registered (best effort)
     for sid in "${ACTIVE_SOURCES[@]}"; do
         curl -sf -X POST "http://localhost:$ANALYTICS_PORT/sources/$sid/stop" >/dev/null 2>&1 || true
     done
-    [[ -n "$ANALYTICS_PID" ]] && kill "$ANALYTICS_PID" 2>/dev/null || true
-    [[ -n "$MOCK_PID" ]] && kill "$MOCK_PID" 2>/dev/null || true
+    if [[ -n "$ANALYTICS_PID" ]]; then kill "$ANALYTICS_PID" 2>/dev/null || true; fi
+    if [[ -n "$MOCK_PID" ]]; then kill "$MOCK_PID" 2>/dev/null || true; fi
     if $MEDIAMTX_OWNED && [[ -n "$MEDIAMTX_PID" ]]; then
         kill "$MEDIAMTX_PID" 2>/dev/null || true
     fi
@@ -121,6 +100,17 @@ trap cleanup EXIT INT TERM
 [[ -x "$PYTHON" ]] || { fail "venv not found at $PYTHON"; exit 1; }
 [[ -x "$MEDIAMTX_BIN" ]] || { fail "mediamtx not found at $MEDIAMTX_BIN"; exit 1; }
 command -v ffmpeg >/dev/null || { fail "ffmpeg not in PATH"; exit 1; }
+
+if [[ -z "$VIDEO_SAMPLE" ]]; then
+    VIDEO_SAMPLE="$SAMPLE_VIDEO"
+    if ! ffprobe -v error "$VIDEO_SAMPLE" 2>/dev/null; then
+        info "Downloading $SAMPLE_URL"
+        mkdir -p "$(dirname "$VIDEO_SAMPLE")"
+        if ! { curl -fsSL --retry 3 -o "$VIDEO_SAMPLE.part" "$SAMPLE_URL" && mv "$VIDEO_SAMPLE.part" "$VIDEO_SAMPLE"; }; then
+            fail "download failed: $SAMPLE_URL"; exit 1
+        fi
+    fi
+fi
 
 for port in "$WEBHOOK_PORT" "$ANALYTICS_PORT"; do
     if lsof -i:"$port" -sTCP:LISTEN -t &>/dev/null; then
@@ -173,7 +163,7 @@ push_rtsp() {
     pkill -f "ffmpeg.*${path}" 2>/dev/null || true
     sleep 1
     ffmpeg -re -stream_loop -1 -ss "$ss" -i "$video" \
-        -c copy -f rtsp "rtsp://localhost:$RTSP_PORT/$path" \
+        -an -c copy -f rtsp "rtsp://localhost:$RTSP_PORT/$path" \
         </dev/null &>/dev/null &
     FFMPEG_PID=$!
     sleep 3
@@ -272,25 +262,10 @@ run_scenario() {
 # --- Run selected scenarios ---
 for scen in "${SCENARIOS[@]}"; do
     case "$scen" in
-        child)
-            #              name    sid        path       video         ss  use_case      pref  full short gt           excl
-            run_scenario   child   cam_child  live/child "$VIDEO_CHILD" 40 child_safety  true  540  120   "$GT_CHILD"  ""
-            ;;
-        fridge)
-            # Fridge GT cues are [TAKE] hand-grab events (2.5-4s each over a 20-min video).
-            # prefilter=off because target_classes=person would filter out hand-only motion.
-            # Last cue is at 15:12, so wait ~16 min to cover all cues with margin.
-            run_scenario   fridge  cam_fridge live/fridge "$VIDEO_FRIDGE" 0 fridge       false 960  120   "$GT_FRIDGE" ""
-            ;;
-        elder_day1)
-            # Elder GT cue 3 is [EMPTY] — empty room, prefilter is *expected* to skip.
-            # Excluding it keeps Recall meaningful (only [SLEEPING]/[WAKEUP] cues count).
-            # full wait=90s: SLEEPING+WAKEUP cues end at ~40s; no point waiting out 7+ min
-            # of empty-room footage just to compute the same Recall.
-            run_scenario   elder_day1 cam_elder_bedroom   live/elder  "$VIDEO_ELDER_DAY1" 0 elder_wakeup true 90  60 "$GT_ELDER_DAY1" "\\[EMPTY\\]"
-            ;;
-        elder_day2)
-            run_scenario   elder_day2 cam_elder_bedroom_2 live/elder2 "$VIDEO_ELDER_DAY2" 0 elder_wakeup true 90  60 "$GT_ELDER_DAY2" "\\[EMPTY\\]"
+        sample)
+            # Four crossings over 50 s; wait one full pass plus margin.
+            #              name   sid       path        video           ss use_case pref  full short gt         excl
+            run_scenario   sample cam_eval  live/sample "$VIDEO_SAMPLE" 0  person   true  60   30    "$GT_SAMPLE" ""
             ;;
     esac
 done

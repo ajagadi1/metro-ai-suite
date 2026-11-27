@@ -45,6 +45,13 @@ By following this guide, you will learn how to:
     > You can skip this optional step since `docker compose up -d` that is run later in this document automatically pulls the required images.
 
 3. **Download the Models**:
+
+    > [!NOTE]
+    > This sample uses the YOLOv11s model for object detection. The model is provided by Ultralytics and is subject to its license:
+    > <https://github.com/ultralytics/ultralytics/blob/main/LICENSE>
+    >
+    > **Disclaimer:** by downloading and using this model, you confirm that you accept the license terms and agree to comply with any applicable model-use and privacy requirements.
+
     - Download the models
       <details open>
       <summary>
@@ -75,24 +82,25 @@ By following this guide, you will learn how to:
       docker run --rm --user=root \
         -e http_proxy -e https_proxy -e no_proxy \
         -v "$MODELS_PATH:/output" \
-        intel/dlstreamer:2026.3.0-ubuntu24-rc1 bash -c "$(cat <<EOF
+        intel/dlstreamer:2026.3.0-ubuntu24-rc2 bash -c "$(cat <<EOF
 
-      mkdir -p src/dlstreamer-pipeline-server/models/public
+      mkdir -p /output/public
 
-      export MODELS_PATH=/output
-      chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
-      if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16/yolo11s.xml" ]; then
-          for attempt in {1..3}; do
-              echo "Attempt $attempt: Running model download and quantization..."
-              if /home/dlstreamer/dlstreamer/samples/download_public_models.sh yolo11s coco128; then
-                  echo "Model download and quantization successful!"
+      if [ ! -e "/output/public/yolo11s/INT8/yolo11s.xml" ]; then
+          uv venv /tmp/ultra-venv
+          uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
+          for attempt in 1 2 3; do
+              echo "Attempt \$attempt: Running YOLOv11s export (INT8)..."
+              if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "/output/public/yolo11s/INT8" --int8 --data coco128.yaml; then
+                  echo "Model export successful!"
                   break
               else
-                  echo "Download attempt $attempt failed. Retrying..."
+                  echo "Export attempt \$attempt failed. Retrying..."
                   sleep 2
               fi
           done
       fi
+      chown -R $(id -u):$(id -g) /output
       EOF
       )"
       ```
@@ -121,24 +129,23 @@ By following this guide, you will learn how to:
           cp -r ./models/public/resnet-50-pytorch /output
           "
       # Download and quantize the yolov11s model
-      docker pull docker.io/intel/dlstreamer:2026.3.0-ubuntu24-rc1
+      docker pull docker.io/intel/dlstreamer:2026.3.0-ubuntu24-rc2
       docker run --rm --user=root `
         -e http_proxy `
         -e https_proxy `
         -e no_proxy `
         -v "${MODELS_PATH}:/output" `
-        intel/dlstreamer:2026.3.0-ubuntu24-rc1 bash -c @'
+        intel/dlstreamer:2026.3.0-ubuntu24-rc2 bash -c @'
         set -e
 
-        mkdir -p src/dlstreamer-pipeline-server/models/public
+        mkdir -p /output/public
 
-        export MODELS_PATH=/output
-        chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
-
-        if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16/yolo11s.xml" ]; then
+        if [ ! -e "/output/public/yolo11s/INT8/yolo11s.xml" ]; then
+          uv venv /tmp/ultra-venv
+          uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
           for attempt in 1 2 3; do
-
-            if /home/dlstreamer/dlstreamer/samples/download_public_models.sh yolo11s coco128; then
+            echo "Attempt $attempt: Running YOLOv11s export (INT8)..."
+            if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "/output/public/yolo11s/INT8" --int8 --data coco128.yaml; then
 
               break
             else

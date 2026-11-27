@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:07,000
+[PERSON] One woman crosses the room from the bottom edge to the right edge
+
+2
+00:00:15,000 --> 00:00:21,000
+[PERSON] Two people walk together across the room toward the left edge
+
+3
+00:00:28,000 --> 00:00:35,000
+[PERSON] Three people walk across the room toward the right edge
+
+4
+00:00:43,000 --> 00:00:47,000
+[PERSON] One man crosses the room toward the left edge

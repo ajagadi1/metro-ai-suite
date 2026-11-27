@@ -44,7 +44,7 @@ These demos are validated end-to-end. They are only a starting point — describ
 ## Supporting Resources
 
 - [Get Started Guide](./get-started.md) — Step-by-step instructions to set up the MCP server and run the bundled use cases.
-  - [Ready-to-Run Demo](./get-started/ready-to-run-demo.md) — Optional reference demo using user-provided video inputs.
+  - [Ready-to-Run Demo](./get-started/ready-to-run-demo.md) — Ready-to-run demo using an open-source video.
 - [System Requirements](./get-started/system-requirements.md) — Hardware and software requirements for running the sample application.
 - [How It Works](./how-it-works.md) — Overview of the platform architecture, data flow, and the role of AI agents in orchestrating video analysis pipelines.
 - [API Reference](./api-reference.md) — Comprehensive reference for the available API endpoints.

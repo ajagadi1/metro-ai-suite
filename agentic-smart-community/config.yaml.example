@@ -5,9 +5,8 @@
 # use cases. It does not declare monitors; add monitors at runtime by chatting
 # with the agent (smart-community-use-case-manager → use_case_register → monitor_ctl).
 #
-# To run the optional Fridge, Child Safety, and Elder Wakeup reference demo, see
-# docs/user-guide/get-started/ready-to-run-demo.md. The demo launcher uses a
-# monitor subset matching the user-provided videos.
+# For a ready-to-run demo with an open-source video, see
+# docs/user-guide/get-started/ready-to-run-demo.md.
 #
 # ─────────────────────────────────────────────────────────────
 # Prerequisites

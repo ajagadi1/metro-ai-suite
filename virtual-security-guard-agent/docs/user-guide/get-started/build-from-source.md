@@ -1,3 +1,11 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Build the Virtual Security Guard Agent container image from source.
+   :keywords: Virtual Security Guard Agent, VSG, build, source, Docker, GNU Make
+```
+hide_directive-->
+
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
@@ -6,12 +14,12 @@ SPDX-License-Identifier: Apache-2.0
 # Build from Source
 
 Run these `make` targets from the `virtual-security-guard-agent` application
-directory. `make help` lists them all.
+directory. `make help` lists the available targets.
 
 ## Prerequisites
 
 - GNU Make.
-- Docker, for `make build`, `make up` and `make push`.
+- Docker, for `make build`, `make up`, and `make push`.
 
 ## Build the Image
 
@@ -29,8 +37,10 @@ make up    REGISTRY=registry.example.com/ TAG=2026.3.0
 ```
 
 `make up` uses a local image before pulling one, so run `make build` after
-code changes.
+code changes. `make push` builds before pushing.
 
-`REGISTRY` needs a trailing slash. `make push` builds before pushing.
+> [!IMPORTANT]
+> `REGISTRY` needs a trailing slash.
 
-For `lint`, `test`, `check` and `format`, see [Run Unit Tests](./run-unit-tests.md).
+For the `lint`, `test`, `check`, and `format` targets, see
+[Run Unit Tests](./run-unit-tests.md).

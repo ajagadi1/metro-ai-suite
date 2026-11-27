@@ -1,5 +1,14 @@
 # Release Notes: Agentic Smart Community
 
+## Version 2026.3.0
+
+**Release Date**: December 7, 2026
+
+**New**:
+
+- **Incremental use-case updates**: lets users add, remove, or adjust detection events without recreating the use case, reusing unchanged settings and avoiding repeated generation and confirmation steps.
+- **Configurable prefilter models**: lets users discover, register, and switch OpenVINO™ detection models for each monitor through conversation.
+
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026

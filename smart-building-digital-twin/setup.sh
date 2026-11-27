@@ -346,7 +346,7 @@ SCENESCAPE_PLUGINS_DIR="$SCRIPT_DIR/generated/scenescape-plugins"
 # SCENESCAPE_PLUGINS_REF selects the branch or tag for the gstplugins sparse clone independently of the image SCENESCAPE_IMAGE_TAG
 SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-$(grep -E '^SCENESCAPE_PLUGINS_REF=' .env 2>/dev/null | head -n1 | cut -d'=' -f2-)}"
 SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-$(read_example_var "SCENESCAPE_PLUGINS_REF")}"
-SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-2026.3.0-rc1}"
+SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-2026.3.0-rc2}"
 
 scenescape_valid() {
     [ -d "$1/dlstreamer-pipeline-server/user_scripts/gstplugins" ]
@@ -742,7 +742,7 @@ success "Docker images ready"
 # Verify Scenescape images are available (pulled from Docker Hub)
 info "Verifying Scenescape images are available..."
 REQUIRED_IMAGE_VERSION="${SCENESCAPE_IMAGE_TAG:-$(read_env_var "SCENESCAPE_IMAGE_TAG")}"
-REQUIRED_IMAGE_VERSION="${REQUIRED_IMAGE_VERSION:-2026.3.0-rc1}"
+REQUIRED_IMAGE_VERSION="${REQUIRED_IMAGE_VERSION:-2026.3.0-rc2}"
 missing_images=()
 for img in scenescape-manager scenescape-controller scenescape-autocalibration scenescape-analytics; do
     if ! docker image inspect "intel/${img}:${REQUIRED_IMAGE_VERSION}" >/dev/null 2>&1; then
@@ -764,7 +764,7 @@ success "Media volume ready"
 info "Starting Scenescape services..."
 echo ""
 export SUPASS="$SUPASS_INPUT"
-docker compose up -d ntpserv pgserver broker mediaserver showcase-streams showcase-cameras web
+docker compose up -d ntpserv pgserver broker mediaserver showcase-cameras web
 
 # Wait for API readiness
 info "Waiting for Scenescape API to become ready..."
@@ -854,6 +854,10 @@ for scene in "${SCENES[@]}"; do
     scene_lower=$(echo "$scene" | tr '[:upper:]' '[:lower:]')
     start_sensor_replay "$scene" "$scene_lower"
 done
+
+# Start video streams last so the narrator and sensor replay observe loop 0 from the first frame
+info "Starting video streams..."
+docker compose up -d showcase-streams
 
 # Check service status
 info "Checking service health..."

@@ -17,18 +17,20 @@ The application ingests RTSP streams, performs VLM inference, and delivers real-
 
 ![System Architecture](./docs/user-guide/_assets/Architecture.png)
 
-```
+```text
 RTSP Source → StreamManager (OpenCV/Circular Buffer)
             ↓
        AgentManager (Orchestrator) ↔ VLM Service (OpenAI-compatible API)
             ↓                     ↔ Alert Agent Service (action dispatch)
        EventManager (SSE Pub/Sub) → Dashboard UI
 ```
+
 ## Learn More
 
 - [Get Started](./docs/user-guide/get-started.md) - Quick deployment guide
 - [Overview](./docs/user-guide/index.md) - Features and architecture
 - [System Requirements](./docs/user-guide/get-started/system-requirements.md) - Hardware and software needs
 - [Build from Source](./docs/user-guide/get-started/build-from-source.md) - Custom build instructions
-- [Release Notes](./docs/user-guide/release-notes.md) - Changelog and known issues
 - [API Reference](./docs/user-guide/api-reference.md) - REST API endpoints
+- [Known Issues](./docs/user-guide/known-issues.md) - Common issues and fixes
+- [Release Notes](./docs/user-guide/release-notes.md) - Changelog

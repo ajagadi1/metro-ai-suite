@@ -1,181 +1,129 @@
 # Ready-to-Run Demo
 
-This optional guide configures reference video streams and monitors for the bundled Fridge, Child Safety, and Elder Wakeup use cases. It registers only the monitors whose user-provided video streams start successfully.
+Run Smart Community end to end with an open-source video.
+
+All files are in [examples/venue-monitor](https://github.com/open-edge-platform/metro-ai-suite/tree/main/agentic-smart-community/examples/venue-monitor).
 
 ## Prerequisites
 
-Before starting the demo, complete both of the following sections in [Get Started](../get-started.md):
+Finish the [Prerequisites](../get-started.md#prerequisites) and [Step 1 - Start all services](../get-started.md#step-1---start-all-services) in Get Started.
 
-1. Complete all [Prerequisites](../get-started.md#prerequisites), including the required system software and command-line tools.
-2. Complete [Step 1 - Start all services](../get-started.md#step-1---start-all-services), and confirm that the model serving, video-summary, and video-stream analytics health checks succeed.
+## Start
 
-The demo supports four independent video-analysis streams with bundled use cases.
-
-| Stream                | Purpose                                                                     |
-| --------------------- | --------------------------------------------------------------------------- |
-| `cam_fridge`          | Tracks fridge door activity and supports inventory-oriented daily reports.  |
-| `cam_child`           | Detects potentially dangerous child behavior for safety alerts and reports. |
-| `cam_elder_bedroom`   | Tracks daily wakeup activity for the elder-wakeup workflow.                 |
-| `cam_elder_bedroom_2` | Runs a second, independent elder-wakeup camera input.                       |
-
-Prepare any subset of compatible local MP4 files. The RTSP pusher copies the source stream, so each selected file must be playable by `ffmpeg` and compatible with your MediaMTX deployment.
-
-## Step 1 - Provide video paths
-
-Video files are not included in release artifacts. All four entries in [streams.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/streams.yaml) default to `enabled: true`, but a stream will be automatically skipped with a warning when its environment variable is unset, empty, or points to an unreadable file.
-
-Export an absolute path for every stream you want to run. Omit variables for streams you do not have; no YAML edits are required.
+From the component root (`agentic-smart-community`):
 
 ```bash
-export SMART_COMMUNITY_DEMO_FRIDGE_VIDEO=/absolute/path/fridge.mp4
-export SMART_COMMUNITY_DEMO_CHILD_VIDEO=/absolute/path/child-safety.mp4
-export SMART_COMMUNITY_DEMO_ELDER_VIDEO=/absolute/path/elder-wakeup.mp4
-export SMART_COMMUNITY_DEMO_ELDER_2_VIDEO=/absolute/path/elder-wakeup-2.mp4
-```
-
-To manually disable a stream even when its variable is available, set that stream's `enabled: false` in [streams.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/streams.yaml).
-
-## Step 2 - Start the demo
-
-From the component root (`metro-ai-suite/agentic-smart-community`), run:
-
-```bash
-# Change to mirror endpoint if you are in China and want to use the mirror site for Hugging Face.
+# Optional, in China: use the Hugging Face mirror.
 export HF_ENDPOINT=https://hf-mirror.com
 
-bash demo/quick-start/start-demo.sh
+bash examples/venue-monitor/start-demo.sh
 ```
 
-This one-shot launcher pushes the demo RTSP streams, writes the demo config/monitors into `$SMART_COMMUNITY_DATA_DIR`, then brings the stack up with `setup_docker.sh --light` (reusing an already-warm `vllm-ipex-serving`) and reloads the `smart-community-mcp-server` container so it picks up the demo config. No separate MCP-server start is needed — it runs as a container in the stack.
+If the demo is already running, it is stopped first and then started again.
+This downloads the video, pushes it as `rtsp://localhost:8010/live/venue`, starts the stack, and registers the `venue_monitor` use case and the `cam_venue` monitor.
 
-The launcher writes [config.demo.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/config.demo.yaml) to `$SMART_COMMUNITY_DATA_DIR/config.yaml`. It filters [monitors.demo.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/monitors.demo.yaml) to the active streams and writes the result to `$SMART_COMMUNITY_DATA_DIR/monitors.yaml`. The MCP server then starts with these two files.
+> [!NOTE]
+> For a Chinese prompt (descriptions and reports in Chinese), run `PROMPT_LANG=zh bash examples/venue-monitor/start-demo.sh` instead.
 
-If either file changes, the previous version is backed up as `<filename>.YYYYMMDD-HHMMSS.bak`. Runtime configuration changes are written to the files in `$SMART_COMMUNITY_DATA_DIR`; the files under `demo/` remain unchanged.
-
-It prints the active stream file at `demo/videos/.run/active-streams.txt`. Verify the running RTSP paths and the selected monitors:
+## Verify
 
 ```bash
-cat demo/videos/.run/active-streams.txt
-cat "${SMART_COMMUNITY_DATA_DIR:-$HOME/.mcp-smart-community}/monitors.yaml"
-ffprobe -rtsp_transport tcp rtsp://localhost:8554/live/child
+ffprobe -rtsp_transport tcp rtsp://localhost:8010/live/venue
 curl -fsS http://localhost:3101/health
-docker logs -f <smart-community-mcp-server-container>
 ```
 
-Replace `child` with the selected path: `fridge`, `child`, `elder`, or `elder2`. Press `Ctrl-C` to stop following the log. Open `http://localhost:3100/` to verify that active monitors appear automatically and that selecting one starts its RTSP live preview. Multiple browser windows viewing the same monitor share one ffmpeg process. The MCP endpoint is `http://localhost:3100/mcp` and the event webhook is `http://localhost:3101/events`.
+Open `http://localhost:3100/` and select `cam_venue` to see the live preview.
 
-## Step 3 - Connect an agent
+## Connect with OpenClaw agent
 
-Connect an MCP client as described in [Get Started - Step 3](../get-started.md#step-3---connect-an-agent-host). The demo supports reactive tool use immediately after the MCP server is registered.
+Follow [Get Started - Step 3](../get-started.md#step-3---connect-an-agent-host) to install the OpenClaw on host, and then register the MCP server with OpenClaw.
 
-## Step 4 - (Optional) Enable proactive OpenClaw alerts
-
-If you are connecting Smart Community to OpenClaw and want an agent to proactively send alert notifications to a specific agent session, install the OpenClaw adapter described in this step. The adapter routes MCP alert updates to the configured OpenClaw agent and session; it is not required for interactive MCP tool calls.
-
-The adapter installer enables proactive alerts for this demo. It configures alert routes for `cam_child` and `cam_elder_bedroom`, imports the Smart Community skills, and provisions the Fridge, Child Safety, and Elder Wakeup agent personas.
-
-This OpenClaw adapter is built with the [Framework Adapter SDK](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/README.md). For details about building the plugin and configuring alert routes, see the [OpenClaw adapter guide](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/examples/openclaw/README.md).
-
-Run the installer from the component root:
+## Create the agent and enable alerts
 
 ```bash
-bash demo/openclaw-adapter/install.sh
+bash examples/venue-monitor/openclaw-adapter/install.sh
 ```
 
-The installer is safe to run again. It builds the SDK, installs and links the OpenClaw plugin, preserves existing alert routes, merges missing demo agents by ID, copies personas without overwriting existing files, imports skills, validates `openclaw.json`, and restarts the gateway. New demo agents use the current `agents.defaults.model.primary`; set `AGENT_MODEL` to override it. By default the adapter uses `http://localhost:3100/mcp`; set `MCP_URL` to update the endpoint.
+This creates `venue-monitor-agent` and routes `cam_venue` alerts to it.
+Run `openclaw dashboard` to open the Control UI (`http://localhost:18789`), where alerts appear in the agent's session.
 
-Open the Control UI at `http://localhost:18789` with `openclaw dashboard`. When a selected video pipeline raises an alert, the adapter immediately appends the formatted notification to the configured agent session. This zero-LLM delivery path keeps latency low and requires no user prompt or polling. The demo enables this flow for `cam_child` and `cam_elder_bedroom`.
-
-### Scheduled reports based on OpenClaw Cron
-
-The following optional OpenClaw cron jobs provide scheduled reports and a safety fallback for the demo agents:
+## Schedule a daily report
 
 | Cron job | Schedule | Agent | Session | Behavior |
 | -------- | -------- | ----- | ------- | -------- |
-| Fridge daily report | Daily at 22:00 | `fridge-agent` | `daily_report` | Generates a daily fridge inventory and dietary report. |
-| Child-safety daily report | Daily at 22:30 | `child-safety-agent` | `daily_report` | Summarizes the day's child-safety alerts and notable events. |
-| Elder-wakeup weekly report | Sunday at 22:00 | `elder-wakeup-agent` | `weekly_report` | Summarizes the week's wakeup activity for `cam_elder_bedroom`. |
-| Elder no-wakeup fallback | Daily at 10:00 | `elder-wakeup-agent` | `cam_elder_bedroom` | Rechecks the scene and raises a `no_wakeup` alert when no get-up event has been observed. |
+| `venue-daily-report-22` | Daily at 22:30 | `venue-monitor-agent` | `daily_report` | Generates the daily report for `cam_venue`: foot-traffic statistics and abnormal events. |
 
-Add only the scheduled demo behavior you want, replacing `Asia/Shanghai` with the applicable timezone:
+Replace `Asia/Shanghai` with your timezone:
 
 ```bash
-# Fridge daily report at 22:00.
-openclaw cron add --name fridge-daily-report-22 --cron "0 22 * * *" --tz Asia/Shanghai \
-  --agent fridge-agent --session "session:daily_report" --session-key agent:fridge-agent:daily_report \
-  --no-deliver --message "Generate today's fridge daily report."
-
-# Child-safety daily report at 22:30.
-openclaw cron add --name child-safety-daily-22 --cron "30 22 * * *" --tz Asia/Shanghai \
-  --agent child-safety-agent --session "session:daily_report" --session-key agent:child-safety-agent:daily_report \
-  --no-deliver --message "Generate today's child-safety daily report."
-
-# Elder-wakeup weekly report every Sunday at 22:00.
-openclaw cron add --name elder-wakeup-weekly-22 --cron "0 22 * * 0" --tz Asia/Shanghai \
-  --agent elder-wakeup-agent --session "session:weekly_report" --session-key agent:elder-wakeup-agent:weekly_report \
-  --no-deliver --message "Generate this week's elder wakeup report for cam_elder_bedroom."
-
-# Daily no-wakeup fallback at 10:00.
-openclaw cron add --name elder-wakeup-fallback-10 --cron "0 10 * * *" --tz Asia/Shanghai \
-  --agent elder-wakeup-agent --session "session:cam_elder_bedroom" --session-key agent:elder-wakeup-agent:cam_elder_bedroom \
-  --no-deliver --message "If no get_up event has been observed by 10:00, use scene_query to recheck whether the bed is occupied and emit a no_wakeup alert when appropriate."
+openclaw cron add --name venue-daily-report-22 --cron "30 22 * * *" --tz Asia/Shanghai \
+  --agent venue-monitor-agent --session "session:daily_report" --session-key agent:venue-monitor-agent:daily_report \
+  --no-deliver --message "Generate today's daily report for cam_venue."
 ```
 
-Verify or remove scheduled jobs with:
+## Talk with the agent
+
+In the Control UI, select `venue-monitor-agent` and ask, for example:
+
+- "What is happening on `cam_venue` right now?"
+- "Were there any alerts on `cam_venue` today?"
+- "Generate today's report for `cam_venue`."
+
+## Stop
 
 ```bash
-openclaw cron list
-openclaw cron rm <job-id>
+bash examples/venue-monitor/stop-demo.sh
 ```
 
-## Step 5 - Talk with agents
+This stops the stream and the app tier, and keeps the model serving warm.
+To stop everything, run `bash setup_docker.sh --down`.
 
-Talk naturally with any demo agent about a camera or time period, then ask follow-up questions as needed. The agent will choose the appropriate Smart Community tools.
+## Learn More
 
-If you installed the OpenClaw adapter in Step 4, open the Control UI and select one of these agents:
+### Use case
 
-### Fridge agent
+`venue_monitor` classifies each clip and counts the distinct people in it (`people_count`, stored in the database and used for the daily report's foot-traffic statistics); `warn` events raise alerts.
 
-Select `fridge-agent` to discuss the current fridge contents, reports, nutrition, and related lifestyle goals. For example:
+| Event             | Severity |
+| ----------------- | -------- |
+| `fight`           | warn     |
+| `fall`            | warn     |
+| `running`         | warn     |
+| `multiple_people` | info     |
+| `person_present`  | info     |
+| `empty`           | info     |
 
-- "Generate today's fridge daily report."
-- "Based on my health goals, is the food in my fridge reasonable? Give me some diet advice."
-- "Any other slimming tips? And where can I go to exercise nearby?"
+The prompts are in [prompts](https://github.com/open-edge-platform/metro-ai-suite/tree/main/agentic-smart-community/examples/venue-monitor/prompts).
+Re-running with a different `PROMPT_LANG` updates the registered prompt.
 
-Try following up with questions such as "Why did you recommend that?", "What changed since yesterday?", or "Give me a shorter shopping list."
+### Video source
 
-### Child Safety agent
+By default, [people-detection.mp4](https://github.com/intel-iot-devkit/sample-videos/blob/master/people-detection.mp4) is downloaded from Intel's open-source `sample-videos` repository on the first run.
 
-Select `child-safety-agent` to ask about recent safety events, the current scene, or patterns over a period of time. For example:
-
-- "Is the child safe right now?"
-- "Were there any child-safety alerts today?"
-- "Generate today's child-safety report and explain the most important event."
-- "How many risky events happened this week?"
-- "What changes would make this room safer?"
-
-You can continue with requests such as "Show me only unacknowledged alerts", "What happened before that alert?", or "Compare today with yesterday."
-
-### Elder Wakeup agent
-
-Select `elder-wakeup-agent` to discuss wakeup activity, daily status, and longer-term patterns. For example:
-
-- "What happened in the elder's bedroom today?"
-- "Has the elder gotten up yet?"
-- "Was today's wakeup later than usual?"
-- "Generate this week's wakeup report and highlight anything unusual."
-- "Compare this week's wakeup times with last week."
-
-Follow up naturally with questions such as "Which day was latest?", "Check the current scene again", or "Explain why this was marked unusual."
-
-These are conversation starters, not a required script. Try your own wording, combine several questions in one conversation, and ask the agent to clarify, compare, summarize, or take a closer look whenever the first answer raises another question. If you skipped the optional OpenClaw adapter, ask the MCP-capable agent connected in Step 3 and include the relevant monitor ID, such as `cam_fridge`, `cam_child`, or `cam_elder_bedroom`.
-
-## Step 6 - Stop the demo
-
-Stop the demo RTSP pushers and the app tier (MCP server + analytics + video-summary) together, leaving `vllm-ipex-serving` running so its multi-minute recompile is not repaid on the next start:
+Use your own local video (any file `ffmpeg` can read, H.264 recommended):
 
 ```bash
-bash demo/quick-start/stop-demo.sh
+VIDEO_FILE=/absolute/path/to/video.mp4 bash examples/venue-monitor/start-demo.sh
 ```
 
-To tear the whole stack down, including `vllm-ipex-serving`, run `bash setup_docker.sh --down`.
+Use an existing RTSP stream (nothing is pushed; `cam_venue` reads your URL):
+
+```bash
+RTSP_URL=rtsp://<host>:<port>/<path> bash examples/venue-monitor/start-demo.sh
+```
+
+### Stream settings
+
+`PLAYS_PER_HOUR` controls the pushed video (default `6`; not used with `RTSP_URL`):
+
+| Value | Behavior                                                                  |
+| ----- | ------------------------------------------------------------------------- |
+| `N`   | Play `N` times per hour; the last frame is held between plays             |
+| `-1`  | Loop continuously, no hold (a very large `N`, 72+ for this video, does the same) |
+| `0`   | Play once                                                                 |
+
+```bash
+PLAYS_PER_HOUR=12 bash examples/venue-monitor/start-demo.sh
+```
+
+To change only the stream, run `examples/venue-monitor/stop-stream.sh`, then `examples/venue-monitor/start-stream.sh`.

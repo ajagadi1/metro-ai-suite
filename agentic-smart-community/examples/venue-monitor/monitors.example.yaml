@@ -1,0 +1,21 @@
+# Example monitor — registered at MCP server startup. `use_case` must exist in config.yaml.
+monitors:
+  cam_venue:
+    enabled: true
+    name: "Venue Camera"
+    source_url: rtsp://localhost:8010/live/venue
+    use_case: venue_monitor
+    pipeline_config:
+      motion: { enabled: true, diff_threshold: 25, area_ratio: 0.015, stable_frames: 30 }
+      # NPU YOLO11s gates summary requests on target classes.
+      prefilter:
+        enabled: true
+        model: yolo11s
+        target_classes: [person]
+        min_confidence: 0.4
+        detect_fps: 2
+        min_frames_hit: 2
+        long_side: 1280
+        device: NPU
+      recording: { enabled: true, interval_seconds: 60 }
+      segment: { max_duration: 10, min_duration: 5 }
